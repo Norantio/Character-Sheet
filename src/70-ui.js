@@ -1228,10 +1228,10 @@ function autoAssignPriority(c) {
 }
 
 document.addEventListener('click', function (ev) {
-  // stop clicks inside the level-up dialog from also firing the backdrop close
-  if (ev.target.closest && ev.target.closest('[data-stop]') && ev.target.closest('[data-act="levelclose"]')) return;
   const el = ev.target.closest('[data-act]');
   if (!el) return;
+  // Stop the backdrop-close from firing when a click lands inside the dialog
+  if (el.dataset.act === 'levelclose' && ev.target.closest('[data-stop]') && ev.target !== el) return;
   const act = el.dataset.act;
   const c = cur();
   app.flash = '';
