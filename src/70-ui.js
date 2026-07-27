@@ -1211,11 +1211,7 @@ document.addEventListener('click', function (ev) {
     case 'setsys': {
       const sid = el.dataset.sys;
       const untouched = !c.lineageId && !c.classId && !c.backgroundId && !(c.spells || []).length;
-      if (sid === c.systemId) {
-        // already on this system: on a new character, treat the click as "yes, continue"
-        if (untouched && app.step === 0) { app.step = 1; render(); }
-        return;
-      }
+      if (sid === c.systemId) return;
       // nothing to lose on an untouched character, so don't nag
       if (!untouched && !confirm('Switch to ' + sys(sid).name + '? Race, class, background, skills, and ability assignments will be cleared.')) return;
       const keep = { id: c.id, name: c.name, player: c.player, level: 1, notes: c.notes, gear: c.gear, gold: c.gold, personality: c.personality, appearance: c.appearance, created: c.created };
@@ -1225,8 +1221,7 @@ document.addEventListener('click', function (ev) {
       const i = app.roster.findIndex(x => x.id === c.id);
       app.roster[i] = swapped;
       resetAllPanels();
-      if (untouched && app.step === 0) app.step = 1;      // keep the wizard moving
-      else app.flash = 'Switched to ' + sys(sid).name + '.';
+      if (!untouched) app.flash = 'Switched to ' + sys(sid).name + '.';
       persist(); render(); return;
     }
     case 'pick': {
