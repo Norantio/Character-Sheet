@@ -4332,8 +4332,18 @@ document.addEventListener('click', function (ev) {
     }
     case 'sheet': app.view = 'sheet'; render(); return;
     case 'sheetpanel': app.view = el.dataset.panel; render(); return;
-    case 'levelmodal': levelUI.open = true; levelUI.done = false; levelUI.from = cur() ? cur().level : 0; render(); return;
-    case 'levelclose': levelUI.open = false; levelUI.done = false; render(); return;
+    case 'levelmodal': levelUI.open = true; levelUI.done = false; levelUI.notesDraft = ''; levelUI.from = cur() ? cur().level : 0; render(); return;
+    case 'levelclose': {
+      if (levelUI.done && levelUI.notesDraft) {
+        const lc2 = cur();
+        if (lc2 && Array.isArray(lc2.journal)) {
+          // append to the level-up journal entry that was just created
+          const entry = lc2.journal.slice().reverse().find(e => e.auto === 'level');
+          if (entry) { entry.text = (entry.text ? entry.text + '\n\n' : '') + levelUI.notesDraft; persist(); }
+        }
+      }
+      levelUI.open = false; levelUI.done = false; levelUI.notesDraft = ''; render(); return;
+    }
     case 'levelgo': {
       const lc = cur();
       if (!lc) return;
@@ -4497,7 +4507,7 @@ function onFieldChange(ev) {
   const c = cur();
   if (!c) return;
 
-  if (el.dataset.levelnotes) { return; }  // removed
+  if (el.dataset.levelnotes) { levelUI.notesDraft = el.value; return; }
   if (el.dataset.act === 'setrank') {
     const id = el.dataset.id;
     c.ranks = c.ranks || {};
@@ -8294,7 +8304,7 @@ function spendSurge(c) {
    ============================================================ */
 
 const sheetUI = { log: [], openSpell: null };
-const levelUI = { open: false, done: false, from: 0 };
+const levelUI = { open: false, done: false, from: 0, notesDraft: '' };
 
 /* What each system calls the sub-choices, for the labelled header */
 const SUBLINEAGE_LABEL = { '5e': 'Subrace', '5.5e': 'Subrace', '4e': 'Variant', pf1: 'Variant', pf2: 'Heritage' };
@@ -8421,6 +8431,10 @@ function levelUpModal(c) {
         ${choices.filter(x => x.kind === 'note').length ? `<div class="lvl-sec"><span class="k">Still to do</span>
           <ul class="cs-list">${choices.filter(x => x.kind === 'note').map(x => `<li>${h(x.label)}</li>`).join('')}</ul>
         </div>` : ''}
+
+        <div class="lvl-sec"><span class="k">Add to journal entry</span>
+          <textarea data-levelnotes="1" style="min-height:60px;width:100%" placeholder="What happened, what did you choose…">${h(levelUI.notesDraft)}</textarea>
+        </div>
       </div>
       <div class="dialog-actions">
         <button class="btn" data-act="modify">Open the wizard</button>
