@@ -4332,8 +4332,15 @@ document.addEventListener('click', function (ev) {
     }
     case 'sheet': app.view = 'sheet'; render(); return;
     case 'sheetpanel': app.view = el.dataset.panel; render(); return;
-    case 'levelmodal': levelUI.open = true; levelUI.done = false; levelUI.from = cur() ? cur().level : 0; render(); return;
-    case 'levelclose': levelUI.open = false; levelUI.done = false; render(); return;
+    case 'levelmodal': levelUI.open = true; levelUI.done = false; levelUI.notesDraft = ''; levelUI.from = cur() ? cur().level : 0; render(); return;
+    case 'levelclose': {
+      // append any notes typed during this level-up to the character's notes
+      if (levelUI.done && levelUI.notesDraft) {
+        const lc2 = cur();
+        if (lc2) { lc2.notes = (lc2.notes ? lc2.notes + '\n' : '') + levelUI.notesDraft; persist(); }
+      }
+      levelUI.open = false; levelUI.done = false; levelUI.notesDraft = ''; render(); return;
+    }
     case 'levelgo': {
       const lc = cur();
       if (!lc) return;
@@ -4497,6 +4504,10 @@ function onFieldChange(ev) {
   const c = cur();
   if (!c) return;
 
+  if (el.dataset.levelnotes) {
+    levelUI.notesDraft = el.value;
+    return;  // no persist, no render
+  }
   if (el.dataset.act === 'setrank') {
     const id = el.dataset.id;
     c.ranks = c.ranks || {};
@@ -8293,7 +8304,7 @@ function spendSurge(c) {
    ============================================================ */
 
 const sheetUI = { log: [], openSpell: null };
-const levelUI = { open: false, done: false, from: 0 };
+const levelUI = { open: false, done: false, from: 0, notesDraft: '' };
 
 /* What each system calls the sub-choices, for the labelled header */
 const SUBLINEAGE_LABEL = { '5e': 'Subrace', '5.5e': 'Subrace', '4e': 'Variant', pf1: 'Variant', pf2: 'Heritage' };
@@ -8421,8 +8432,8 @@ function levelUpModal(c) {
           <ul class="cs-list">${choices.filter(x => x.kind === 'note').map(x => `<li>${h(x.label)}</li>`).join('')}</ul>
         </div>` : ''}
 
-        <div class="lvl-sec"><span class="k">Notes</span>
-          <textarea data-field="notes" style="min-height:70px" placeholder="Feats, powers, item choices…">${h(c.notes || '')}</textarea>
+        <div class="lvl-sec"><span class="k">Notes for this level</span>
+          <textarea data-levelnotes="1" style="min-height:70px;width:100%" placeholder="Feats, powers, item choices…">${h(levelUI.notesDraft)}</textarea>
         </div>
       </div>
       <div class="dialog-actions">

@@ -1316,8 +1316,15 @@ document.addEventListener('click', function (ev) {
     }
     case 'sheet': app.view = 'sheet'; render(); return;
     case 'sheetpanel': app.view = el.dataset.panel; render(); return;
-    case 'levelmodal': levelUI.open = true; levelUI.done = false; levelUI.from = cur() ? cur().level : 0; render(); return;
-    case 'levelclose': levelUI.open = false; levelUI.done = false; render(); return;
+    case 'levelmodal': levelUI.open = true; levelUI.done = false; levelUI.notesDraft = ''; levelUI.from = cur() ? cur().level : 0; render(); return;
+    case 'levelclose': {
+      // append any notes typed during this level-up to the character's notes
+      if (levelUI.done && levelUI.notesDraft) {
+        const lc2 = cur();
+        if (lc2) { lc2.notes = (lc2.notes ? lc2.notes + '\n' : '') + levelUI.notesDraft; persist(); }
+      }
+      levelUI.open = false; levelUI.done = false; levelUI.notesDraft = ''; render(); return;
+    }
     case 'levelgo': {
       const lc = cur();
       if (!lc) return;
@@ -1481,6 +1488,10 @@ function onFieldChange(ev) {
   const c = cur();
   if (!c) return;
 
+  if (el.dataset.levelnotes) {
+    levelUI.notesDraft = el.value;
+    return;  // no persist, no render
+  }
   if (el.dataset.act === 'setrank') {
     const id = el.dataset.id;
     c.ranks = c.ranks || {};

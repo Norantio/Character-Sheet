@@ -3,7 +3,7 @@
    ============================================================ */
 
 const sheetUI = { log: [], openSpell: null };
-const levelUI = { open: false, done: false, from: 0 };
+const levelUI = { open: false, done: false, from: 0, notesDraft: '' };
 
 /* What each system calls the sub-choices, for the labelled header */
 const SUBLINEAGE_LABEL = { '5e': 'Subrace', '5.5e': 'Subrace', '4e': 'Variant', pf1: 'Variant', pf2: 'Heritage' };
@@ -131,8 +131,8 @@ function levelUpModal(c) {
           <ul class="cs-list">${choices.filter(x => x.kind === 'note').map(x => `<li>${h(x.label)}</li>`).join('')}</ul>
         </div>` : ''}
 
-        <div class="lvl-sec"><span class="k">Notes</span>
-          <textarea data-field="notes" style="min-height:70px" placeholder="Feats, powers, item choices…">${h(c.notes || '')}</textarea>
+        <div class="lvl-sec"><span class="k">Notes for this level</span>
+          <textarea data-levelnotes="1" style="min-height:70px;width:100%" placeholder="Feats, powers, item choices…">${h(levelUI.notesDraft)}</textarea>
         </div>
       </div>
       <div class="dialog-actions">
