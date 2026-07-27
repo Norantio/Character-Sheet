@@ -247,7 +247,8 @@ function pageBar(c, where) {
         ? `<span class="sysbadge">Reading only</span>
            <button class="btn" data-act="print">Print / PDF</button>`
         : where === 'sheet'
-        ? `<button class="btn primary" data-act="modify">Modify character</button>
+        ? `<button class="btn" data-act="levelmodal">Level up</button>
+           <button class="btn primary" data-act="modify">Modify character</button>
            <button class="btn" data-act="print">Print / PDF</button>`
           : `<button class="btn primary" data-act="sheet">Done — view character</button>`}
       ${guest || app.preview ? '' : `<button class="btn" data-act="export">Export</button>`}
@@ -1227,6 +1228,8 @@ function autoAssignPriority(c) {
 }
 
 document.addEventListener('click', function (ev) {
+  // stop clicks inside the level-up dialog from also firing the backdrop close
+  if (ev.target.closest && ev.target.closest('[data-stop]') && ev.target.closest('[data-act="levelclose"]')) return;
   const el = ev.target.closest('[data-act]');
   if (!el) return;
   const act = el.dataset.act;
@@ -1313,6 +1316,20 @@ document.addEventListener('click', function (ev) {
     }
     case 'sheet': app.view = 'sheet'; render(); return;
     case 'sheetpanel': app.view = el.dataset.panel; render(); return;
+    case 'levelmodal': levelUI.open = true; levelUI.done = false; levelUI.from = cur() ? cur().level : 0; render(); return;
+    case 'levelclose': levelUI.open = false; levelUI.done = false; render(); return;
+    case 'levelgo': {
+      const lc = cur();
+      if (!lc) return;
+      const was = lc.level;
+      app.levelUpLog = levelUp(lc, lc.level + 1);
+      logHistory(lc, 'Reached level ' + lc.level + (app.levelUpLog.length ? ' \u2014 ' + app.levelUpLog.map(g => g.text).join('; ') : ''));
+      if (lc.level > was && typeof autoJournal === 'function') {
+        autoJournal(lc, 'level', 'Reached level ' + lc.level, 'Went up from level ' + was + '.');
+      }
+      levelUI.done = true;
+      persist(); render(); return;
+    }
     case 'print': window.print(); return;
     case 'export': doExport(c); return;
     case 'import': doImport(); return;

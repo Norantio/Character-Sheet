@@ -4491,7 +4491,8 @@ function pageBar(c, where) {
         ? `<span class="sysbadge">Reading only</span>
            <button class="btn" data-act="print">Print / PDF</button>`
         : where === 'sheet'
-        ? `<button class="btn primary" data-act="modify">Modify character</button>
+        ? `<button class="btn" data-act="levelmodal">Level up</button>
+           <button class="btn primary" data-act="modify">Modify character</button>
            <button class="btn" data-act="print">Print / PDF</button>`
           : `<button class="btn primary" data-act="sheet">Done — view character</button>`}
       ${guest || app.preview ? '' : `<button class="btn" data-act="export">Export</button>`}
@@ -5471,6 +5472,8 @@ function autoAssignPriority(c) {
 }
 
 document.addEventListener('click', function (ev) {
+  // stop clicks inside the level-up dialog from also firing the backdrop close
+  if (ev.target.closest && ev.target.closest('[data-stop]') && ev.target.closest('[data-act="levelclose"]')) return;
   const el = ev.target.closest('[data-act]');
   if (!el) return;
   const act = el.dataset.act;
@@ -5557,6 +5560,20 @@ document.addEventListener('click', function (ev) {
     }
     case 'sheet': app.view = 'sheet'; render(); return;
     case 'sheetpanel': app.view = el.dataset.panel; render(); return;
+    case 'levelmodal': levelUI.open = true; levelUI.done = false; levelUI.from = cur() ? cur().level : 0; render(); return;
+    case 'levelclose': levelUI.open = false; levelUI.done = false; render(); return;
+    case 'levelgo': {
+      const lc = cur();
+      if (!lc) return;
+      const was = lc.level;
+      app.levelUpLog = levelUp(lc, lc.level + 1);
+      logHistory(lc, 'Reached level ' + lc.level + (app.levelUpLog.length ? ' \u2014 ' + app.levelUpLog.map(g => g.text).join('; ') : ''));
+      if (lc.level > was && typeof autoJournal === 'function') {
+        autoJournal(lc, 'level', 'Reached level ' + lc.level, 'Went up from level ' + was + '.');
+      }
+      levelUI.done = true;
+      persist(); render(); return;
+    }
     case 'print': window.print(); return;
     case 'export': doExport(c); return;
     case 'import': doImport(); return;
@@ -9504,6 +9521,7 @@ function spendSurge(c) {
    ============================================================ */
 
 const sheetUI = { log: [], openSpell: null };
+const levelUI = { open: false, done: false, from: 0 };
 
 /* What each system calls the sub-choices, for the labelled header */
 const SUBLINEAGE_LABEL = { '5e': 'Subrace', '5.5e': 'Subrace', '4e': 'Variant', pf1: 'Variant', pf2: 'Heritage' };
@@ -9512,6 +9530,135 @@ const SUBCLASS_LABEL = { '5e': 'Subclass', '4e': 'Build', pf1: 'Archetype', pf2:
 function logPlay(msg) {
   sheetUI.log.unshift(msg);
   sheetUI.log = sheetUI.log.slice(0, 6);
+}
+
+/* ---------------- level-up modal ---------------- */
+function levelChoices(c, l) {
+  const S = sys(c.systemId);
+  const cls = byId(S.classes, c.classId);
+  const out = [];
+  if (c.systemId === '5e' || c.systemId === '5.5e') {
+    if (cls && (cls.asiLevels || []).includes(l)) out.push({ kind: 'asi5e', level: l, label: 'Ability Score Improvement — two points, or a feat instead' });
+    if (cls && (cls.subclasses || []).length && !c.subclassId) out.push({ kind: 'subclass', label: (SUBCLASS_LABEL && SUBCLASS_LABEL[c.systemId]) || 'Subclass' });
+  } else if (c.systemId === 'pf1') {
+    if (l % 4 === 0) out.push({ kind: 'asipf1', level: l, label: '+1 to one ability score' });
+    if (l % 2 === 1) out.push({ kind: 'note', label: 'A new feat — record it in the notes' });
+  } else if (c.systemId === 'pf2') {
+    if ([5, 10, 15, 20].includes(l)) out.push({ kind: 'boosts', level: l, label: 'Four ability boosts' });
+    const S2 = sys('pf2');
+    if ((S2.skillIncreaseLevels || []).includes(l)) out.push({ kind: 'note', label: 'A skill increase — set it on the Skills step' });
+  } else if (c.systemId === '4e') {
+    if (l % 2 === 1) out.push({ kind: 'note', label: 'A new feat' });
+    if ([2, 6, 10, 16, 22, 26].includes(l)) out.push({ kind: 'note', label: 'A new utility power' });
+  }
+  return out;
+}
+
+function levelHpNote(c) {
+  const S = sys(c.systemId);
+  const cls = byId(S.classes, c.classId);
+  const hd = cls ? (cls.hitDie || 8) : 8;
+  if (c.systemId === '4e') return 'Hit points rise on the 4e schedule.';
+  const con = mod((c.finalScores || {}).con || 10);
+  if (c.hpMethod === 'roll') return 'Hit points: 1d' + hd + ' + ' + signed(con) + ', rolled when you confirm.';
+  return 'Hit points: +' + (Math.floor(hd / 2) + 1 + con) + ' (fixed average of a d' + hd + ', ' + signed(con) + ' Con).';
+}
+
+function levelUpModal(c) {
+  if (!levelUI.open || !c) return '';
+  const S = sys(c.systemId);
+  const cls = byId(S.classes, c.classId);
+  const capped = c.level >= S.maxLevel;
+
+  if (!levelUI.done) {
+    const target = c.level + 1;
+    const feats = cls && cls.features && cls.features[target] ? cls.features[target] : [];
+    const choices = levelChoices(c, target);
+    return `<div class="dialog-backdrop noprint" data-act="levelclose">
+      <div class="dialog lvl-dialog" data-stop="1">
+        <div class="dialog-title">Level ${c.level} → ${capped ? c.level : target}</div>
+        <div class="dialog-body">
+          ${capped ? `<p class="note">${h(c.name || 'This character')} is already at the cap for ${h(S.name)}.</p>` : `
+          <div class="lvl-sec"><span class="k">What you gain</span>
+            ${feats.length ? `<ul class="cs-list">${feats.map(f => `<li>${h(f)}</li>`).join('')}</ul>` : '<p class="note">No new class feature at this level.</p>'}
+            <p class="note">${h(levelHpNote(c))}</p>
+          </div>
+          <div class="lvl-sec"><span class="k">What you will choose</span>
+            ${choices.length ? `<ul class="cs-list">${choices.map(ch => `<li>${h(ch.label)}</li>`).join('')}</ul>` : '<p class="note">Nothing to decide — this level applies itself.</p>'}
+          </div>`}
+        </div>
+        <div class="dialog-actions">
+          <button class="btn" data-act="levelclose">Cancel</button>
+          ${capped ? '' : `<button class="btn primary" data-act="levelgo">Level up to ${target}</button>`}
+        </div>
+      </div>
+    </div>`;
+  }
+
+  /* after levelling up: show what was gained and let the player make choices */
+  const l = c.level;
+  const choices = levelChoices(c, l);
+  const gained = app.levelUpLog || [];
+  const asi = choices.find(x => x.kind === 'asi5e' || x.kind === 'asipf1');
+  const boosts = choices.find(x => x.kind === 'boosts');
+  const wantsSub = choices.find(x => x.kind === 'subclass');
+  const cur5 = asArray((c.levelAsi || {})[l]);
+  const curB = asArray(((c.boosts || {}).levels || {})[l]);
+
+  return `<div class="dialog-backdrop noprint" data-act="levelclose">
+    <div class="dialog lvl-dialog" data-stop="1">
+      <div class="dialog-title">Welcome to level ${l}</div>
+      <div class="dialog-body">
+        ${gained.length ? `<div class="lvl-sec"><span class="k">Gained</span>
+          <ul class="cs-list">${gained.map(g => `<li>${h(g.text)}</li>`).join('')}</ul></div>` : ''}
+
+        ${wantsSub && cls ? `<div class="lvl-sec"><span class="k">${h(wantsSub.label)}</span>
+          <div class="field"><select data-field="subclassId">
+            <option value="">—</option>
+            ${(cls.subclasses || []).map(s => `<option value="${h(s.id)}" ${c.subclassId === s.id ? 'selected' : ''}>${h(s.name)}</option>`).join('')}
+          </select></div>
+          <p class="note">${h((byId(cls.subclasses || [], c.subclassId) || {}).note || 'Pick the path this character follows.')}</p>
+        </div>` : ''}
+
+        ${asi && asi.kind === 'asi5e' ? `<div class="lvl-sec"><span class="k">Ability Score Improvement</span>
+          <div class="grid3">
+            ${abilSelect(c, 'levelAsi.' + l + '.0', cur5[0], [], 'First point (+1)')}
+            ${abilSelect(c, 'levelAsi.' + l + '.1', cur5[1], [], 'Second point (+1)')}
+            <div class="field"><label>Feat taken instead</label>
+              <input data-field="choices.feat${l}" value="${h((c.choices || {})['feat' + l] || '')}" placeholder="e.g. Sharpshooter"></div>
+          </div>
+          <p class="note">Pick the same ability twice for +2.</p>
+        </div>` : ''}
+
+        ${asi && asi.kind === 'asipf1' ? `<div class="lvl-sec"><span class="k">+1 ability score</span>
+          <div class="grid3">${abilSelect(c, 'levelAsi.' + l + '.0', asArray((c.levelAsi || {})[l])[0], [], 'Increase')}</div>
+        </div>` : ''}
+
+        ${boosts ? `<div class="lvl-sec"><span class="k">Four ability boosts</span>
+          <div class="grid3">${[0, 1, 2, 3].map(i => {
+            const taken = curB.filter((x, j) => j !== i && x);
+            return `<div class="field"><label>Boost ${i + 1}</label>
+              <select data-field="boosts.levels.${l}.${i}"><option value="">—</option>
+              ${ABIL6.map(a => `<option value="${a}" ${curB[i] === a ? 'selected' : ''} ${taken.includes(a) ? 'disabled' : ''}>${h(ABIL_NAME[a])}</option>`).join('')}
+              </select></div>`;
+          }).join('')}</div>
+          <p class="note">A boost gives +2, or +1 once the score is 18 or higher.</p>
+        </div>` : ''}
+
+        ${choices.filter(x => x.kind === 'note').length ? `<div class="lvl-sec"><span class="k">Still to do</span>
+          <ul class="cs-list">${choices.filter(x => x.kind === 'note').map(x => `<li>${h(x.label)}</li>`).join('')}</ul>
+        </div>` : ''}
+
+        <div class="lvl-sec"><span class="k">Notes</span>
+          <textarea data-field="notes" style="min-height:70px" placeholder="Feats, powers, item choices…">${h(c.notes || '')}</textarea>
+        </div>
+      </div>
+      <div class="dialog-actions">
+        <button class="btn" data-act="modify">Open the wizard</button>
+        <button class="btn primary" data-act="levelclose">Done</button>
+      </div>
+    </div>
+  </div>`;
 }
 
 function viewSheet() {
@@ -9604,7 +9751,7 @@ function viewSheet() {
     ])}
 
       ${c.printSpellText ? spellTextSheet(c) : ''}
-    </div>`;
+    </div>${levelUpModal(real)}`;
 }
 
 /* ---------------- sheet sub-pages: Inventory / Journal / Character ---------------- */
