@@ -3021,7 +3021,8 @@ function levelUp(c, to) {
 const app = {
   roster: [],
   currentId: null,
-  view: 'home',   // home | roster | build | sheet | campaign | signin
+  view: 'home',   // home | roster | dm | build | sheet | campaign | signin
+  role: null,     // 'player' | 'dm' — set by the home landing
   step: 0,
   // set to 'dm' or 'party' while looking at your own sheet as someone else
   preview: null,
@@ -3185,6 +3186,7 @@ function render() {
 
   if (app.view === 'signin') root.innerHTML = viewSignIn();
   else if (app.view === 'home') root.innerHTML = viewHome();
+  else if (app.view === 'dm') root.innerHTML = viewDmLanding();
   else if (app.view === 'campaign') root.innerHTML = viewCampaign();
   else if (app.view === 'roster') root.innerHTML = viewRoster();
   else if (app.view === 'sheet') root.innerHTML = viewSheet();
@@ -3216,6 +3218,8 @@ function topbar() {
     const camp = campUI.data && campUI.data.campaign;
     right = `<span class="sysbadge">${h(camp ? camp.name : 'Campaign')}</span>
       <button class="btn ghost" data-act="home">← Home</button>`;
+  } else if (app.view === 'dm') {
+    right = `<span class="sysbadge">DM</span><button class="btn ghost" data-act="home">← Home</button>`;
   } else if (app.view === 'roster') {
     right = `<span class="sysbadge">${app.roster.length} character${app.roster.length === 1 ? '' : 's'}</span>
       <button class="btn ghost" data-act="home">← Home</button>`;
@@ -3301,6 +3305,38 @@ function viewHome() {
   </div>`;
 }
 
+/* ---------------- DM landing ---------------- */
+function viewDmLanding() {
+  const who = STORE.profile;
+  const myCamps = campaignList();
+  const dmCamps = myCamps.filter(c => c.yourRole === 'dm');
+
+  return `<div class="home">
+    <div class="hero">
+      <h1>DM Dashboard</h1>
+      <p>${who ? 'Welcome, <b>' + h(who.name) + '</b>.' : 'Dungeon Master view.'} Set up your campaign, then share the server address with your players.</p>
+    </div>
+    <div class="homewrap">
+      <div style="margin-bottom:8px"><button class="btn ghost" data-act="home">&larr; Back to Home</button></div>
+      ${campaignsPanel()}
+      ${app.roster.length ? `<details class="panel disclose">
+        <summary>My own characters (${app.roster.length})</summary>
+        <div class="roster" style="margin-top:10px">${app.roster.map(c => {
+          const S = sys(c.systemId);
+          const lin = byId(S.lineages, c.lineageId);
+          const cls = byId(S.classes, c.classId);
+          return `<div class="rcard clickable" data-act="open" data-id="${c.id}" role="button" tabindex="0">
+            <div class="rcard-head"><h3>${h(c.name || 'Unnamed')}</h3>
+              <span class="tag">${h(SYSTEM_SHORT[c.systemId] || S.name)}</span></div>
+            <div class="meta">Level ${c.level} ${h(lin ? lin.name : '—')} ${h(cls ? cls.name : '—')}</div>
+            <div class="acts"><button class="btn sm primary" data-act="open" data-id="${c.id}">Open</button></div>
+          </div>`;
+        }).join('')}</div>
+      </details>` : ''}
+    </div>
+  </div>`;
+}
+
 /* ---------------- roster ---------------- */
 function viewRoster() {
   const cards = app.roster.map(c => {
@@ -3339,6 +3375,7 @@ function viewRoster() {
       ${storageOK ? '' : '<p class="note" style="color:#e08b82">Browser storage is unavailable, so characters will only last until you close the tab. Use Export JSON to keep them.</p>'}
     </div>
     <div class="homewrap">
+      <div style="margin-bottom:8px"><button class="btn ghost" data-act="home">&larr; Back to Home</button></div>
       <div class="panel">
         <h2>Your characters <span class="hint">${app.roster.length ? app.roster.length + ' saved' : 'none yet'}</span></h2>
         ${app.roster.length
@@ -4260,6 +4297,7 @@ document.addEventListener('click', function (ev) {
       app.currentId = null;
       app.guest = null;
       app.preview = null;
+      app.role = null;
       pruneBlank();
       app.view = 'home'; render(); return;
     }
@@ -4272,14 +4310,16 @@ document.addEventListener('click', function (ev) {
       app.view = 'roster'; render(); return;
     }
     case 'homeplayer': {
+      app.role = 'player';
       app.view = 'roster'; render(); return;
     }
     case 'homedm': {
+      app.role = 'dm';
       const dmCamps = campaignList().filter(camp => camp.yourRole === 'dm');
       if (dmCamps.length === 1) { openCampaign(dmCamps[0].id); return; }
-      // no campaign yet: open the campaign creation form so the DM can start one
+      // no campaign yet: show DM landing so they can create one
       campUI.creating = true;
-      app.view = 'roster'; render(); return;
+      app.view = 'dm'; render(); return;
     }
     case 'sheet': app.view = 'sheet'; render(); return;
     case 'print': window.print(); return;
