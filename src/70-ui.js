@@ -5,7 +5,7 @@
 const app = {
   roster: [],
   currentId: null,
-  view: 'roster',   // roster | build | sheet | campaign | signin
+  view: 'home',   // home | roster | build | sheet | campaign | signin
   step: 0,
   // set to 'dm' or 'party' while looking at your own sheet as someone else
   preview: null,
@@ -168,6 +168,7 @@ function render() {
   const focus = sameScreen ? captureFocus() : null;
 
   if (app.view === 'signin') root.innerHTML = viewSignIn();
+  else if (app.view === 'home') root.innerHTML = viewHome();
   else if (app.view === 'campaign') root.innerHTML = viewCampaign();
   else if (app.view === 'roster') root.innerHTML = viewRoster();
   else if (app.view === 'sheet') root.innerHTML = viewSheet();
@@ -189,12 +190,19 @@ function topbar() {
     return `<div class="brand">Character Forge<small>Multi-system RPG builder</small></div>
       <div class="spacer"></div>`;
   }
+  if (app.view === 'home') {
+    const who = signedIn() ? STORE.profile : null;
+    const out = who ? `<span class="conn-who" style="font-size:.85rem;color:var(--dim)">${h(who.name)}</span>` : '';
+    const so = isConnected() && signedIn() ? `<button class="btn ghost" data-act="signout">Sign out</button>` : '';
+    return `<div class="brand">Character Forge<small>Multi-system RPG builder</small></div><div class="spacer"></div>${out}${so}`;
+  }
   if (app.view === 'campaign') {
     const camp = campUI.data && campUI.data.campaign;
     right = `<span class="sysbadge">${h(camp ? camp.name : 'Campaign')}</span>
-      <button class="btn ghost" data-act="roster">← Home</button>`;
+      <button class="btn ghost" data-act="home">← Home</button>`;
   } else if (app.view === 'roster') {
-    right = `<span class="sysbadge">${app.roster.length} character${app.roster.length === 1 ? '' : 's'}</span>`;
+    right = `<span class="sysbadge">${app.roster.length} character${app.roster.length === 1 ? '' : 's'}</span>
+      <button class="btn ghost" data-act="home">← Home</button>`;
   } else if (c) {
     const S = sys(c.systemId);
     right = `<span class="sysbadge">${h(SYSTEM_SHORT[c.systemId] || S.name)} · Level ${c.level}</span>
@@ -233,6 +241,46 @@ function pageBar(c, where) {
            <button class="btn" data-act="print">Print / PDF</button>`
           : `<button class="btn primary" data-act="sheet">Done — view character</button>`}
       ${guest || app.preview ? '' : `<button class="btn" data-act="export">Export</button>`}
+    </div>
+  </div>`;
+}
+
+/* ---------------- home landing ---------------- */
+function viewHome() {
+  const serverName = STORE.server && STORE.server.name;
+  const who = STORE.profile;
+  const myChars = app.roster.length;
+  const myCamps = campaignList();
+  const dmCamps = myCamps.filter(c => c.yourRole === 'dm');
+  const playerCamps = myCamps.filter(c => c.yourRole === 'player');
+
+  const dmSub = dmCamps.length === 1
+    ? h(dmCamps[0].name) + (dmCamps[0].memberCount ? ' &middot; ' + dmCamps[0].memberCount + ' at the table' : '')
+    : dmCamps.length > 1 ? dmCamps.length + ' campaigns'
+    : isConnected() ? 'No campaign yet' : 'No campaign yet';
+
+  const playerSub = myChars
+    ? myChars + ' character' + (myChars === 1 ? '' : 's') + (playerCamps.length ? ' &middot; ' + playerCamps.map(c => h(c.name)).join(', ') : '')
+    : 'Create a character to get started';
+
+  return `<div class="home">
+    <div class="hero">
+      <h1>${h(serverName || 'Character Forge')}</h1>
+      <p>${who ? 'Welcome back, <b>' + h(who.name) + '</b>. Who are you tonight?' : 'Welcome to the table.'}</p>
+    </div>
+    <div class="homewrap">
+      <div class="home-roles">
+        <button class="home-role-card" data-act="homeplayer">
+          <span class="home-role-label">Player</span>
+          <span class="home-role-sub">${playerSub}</span>
+          <span class="home-role-cta">Open your character</span>
+        </button>
+        <button class="home-role-card" data-act="homedm">
+          <span class="home-role-label">Dungeon Master</span>
+          <span class="home-role-sub">${dmSub}</span>
+          <span class="home-role-cta">See the party</span>
+        </button>
+      </div>
     </div>
   </div>`;
 }
@@ -1192,12 +1240,28 @@ document.addEventListener('click', function (ev) {
         render();
       } return;
     }
+    case 'home': {
+      app.currentId = null;
+      app.guest = null;
+      app.preview = null;
+      pruneBlank();
+      app.view = 'home'; render(); return;
+    }
     case 'roster': {
       // drop a character the user created but never touched
       app.currentId = null;
       app.guest = null;
       app.preview = null;
       pruneBlank();
+      app.view = 'roster'; render(); return;
+    }
+    case 'homeplayer': {
+      app.view = 'roster'; render(); return;
+    }
+    case 'homedm': {
+      const dmCamps = campaignList().filter(camp => camp.yourRole === 'dm');
+      if (dmCamps.length === 1) { openCampaign(dmCamps[0].id); return; }
+      // no campaign yet, or multiple: go to roster where the campaign panel is visible
       app.view = 'roster'; render(); return;
     }
     case 'sheet': app.view = 'sheet'; render(); return;

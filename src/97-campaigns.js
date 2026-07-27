@@ -477,7 +477,7 @@ async function doDeleteCampaign() {
   try {
     await storeDeleteCampaign(camp.id);
     app.roster = loadRoster();
-    app.view = 'roster';
+    app.view = 'home';
     campUI.id = null; campUI.data = null;
   } catch (e) { campUI.error = 'Could not close it: ' + e.message; }
   render();

@@ -171,7 +171,7 @@ function adoptServerRoster() {
   app.roster = loadRoster();
   app.roster.forEach(migrateCharacter);
   app.currentId = null;
-  app.view = 'roster';
+  app.view = 'home';
   resetSignin();
   resetAllPanels();
   if (typeof storeWatch === 'function') storeWatch();
