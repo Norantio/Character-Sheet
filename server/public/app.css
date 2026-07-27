@@ -1,20 +1,54 @@
 :root {
-  --bg: #14100e;
-  --bg2: #1d1815;
-  --panel: #241e1a;
-  --panel2: #2c2521;
-  --line: #3d332c;
-  --ink: #ece3d6;
-  --dim: #a4968a;
-  --gold: #c9a227;
-  --gold2: #e5c455;
-  --red: #a5342b;
-  --green: #5c8a4a;
-  --blue: #4a6f8a;
+  /* Nocturne tokens */
+  --color-bg: #161826;
+  --color-surface: #232532;
+  --color-text: #e9e9ed;
+  --color-accent: #9184d9;
+  --color-section: #262a60;
+  --color-section-glow: #353b80;
+
+  --neutral-100: #f3f5fe;
+  --neutral-300: #cfd3e5;
+  --neutral-400: #b2b6ca;
+  --neutral-500: #9397ab;
+  --neutral-600: #75798c;
+  --neutral-700: #595d6c;
+  --neutral-800: #3f424d;
+  --neutral-900: #292b31;
+
+  --accent-100: #f5f4ff;
+  --accent-200: #e7e5fe;
+  --accent-300: #d2cefd;
+  --accent-400: #b5abfc;
+  --accent-500: #968ae0;
+  --accent-600: #796cbf;
+  --accent-700: #5d5294;
+  --accent-800: #423a6a;
+  --accent-900: #2b2741;
+
+  --shadow-sm: 0 0 0 1px #3f424d;
+  --shadow-md: 0 0 0 1px #595d6c, 0 6px 18px rgba(0,0,0,.55);
+
+  /* legacy names, remapped — existing rules keep working */
+  --bg: var(--color-bg);
+  --bg2: #1c1e2b;
+  --panel: var(--color-surface);
+  --panel2: #2a2c3a;
+  --line: var(--neutral-800);
+  --line2: var(--neutral-900);
+  --ink: var(--color-text);
+  --dim: var(--neutral-500);
+  --gold: var(--color-accent);
+  --gold2: var(--accent-300);
+  --red: #b06a63;
+  --green: var(--accent-600);
+  --blue: var(--accent-500);
+
   --radius: 8px;
+  --radius-lg: 12px;
   --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-  --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
-  --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --serif: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --sans: Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; }
@@ -24,7 +58,7 @@ html {
   text-size-adjust: 100%;
 }
 button, .rcard, .pip, .card, .step {
-  -webkit-tap-highlight-color: rgba(201, 162, 39, .25);
+  -webkit-tap-highlight-color: rgba(145, 132, 217, .25);
   /* no 300ms tap delay and no double-tap zoom on controls */
   touch-action: manipulation;
 }
