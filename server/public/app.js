@@ -659,6 +659,562 @@ const SYS_5E = {
 };
 
 
+/* ===== 21-dnd55e.js ===== */
+/* ============================================================
+   D&D 5e (2024) \u2014 \u201c5.5e\u201d core rules
+   ------------------------------------------------------------
+   Based on System Reference Document 5.2.1 \u00a9 2025 Wizards of the
+   Coast LLC. Available under Creative Commons Attribution 4.0
+   International (CC-BY-4.0).
+
+   Key differences from 5e (2014):
+   - Species no longer provide fixed ability score increases.
+   - Backgrounds provide ability score increases (+2/+1 or +1/+1/+1).
+     The player\u2019s assignment is stored in c.bgAsiAssign.
+   - Two new species: Goliath, Orc. Half-Elf and Half-Orc are not
+     in the 2024 core SRD.
+   - Updated class features throughout.
+   - New feats: Fighting Style feats, Ability Score Improvement feat,
+     and seven Boon (epic) feats.
+   - derive() is shared with SYS_5E \u2014 see bottom of this file.
+   ============================================================ */
+
+/* ASI level tables are the same as the 2014 edition. */
+const ASI_55E = ASI_5E;
+const ASI_55E_FIGHTER = ASI_5E_FIGHTER;
+const ASI_55E_ROGUE = ASI_5E_ROGUE;
+
+const SYS_55E = {
+  id: '5.5e',
+  name: 'D&D 5e (2024)',
+  tag: '2024 core',
+  blurb: 'Updated 5e rules. Background provides ability score increases. Revised classes and species.',
+  maxLevel: 20,
+  abilities: ABIL6,
+  lineageLabel: 'Species',
+  classLabel: 'Class',
+  backgroundLabel: 'Background',
+  subclassLabel: 'Subclass',
+
+  /* Backgrounds provide +2/+1 (or +1/+1/+1) to ability scores instead of
+     species. The player stores their choice in c.bgAsiAssign = { str:0, ... }.
+     The engine reads this when backgroundAsi is true. */
+  backgroundAsi: true,
+
+  abilityGen: {
+    pointBuy: { points: 27, min: 8, max: 15, table: PB_5E },
+    arrays: [
+      { id: 'std', name: 'Standard Array', scores: [15, 14, 13, 12, 10, 8] },
+      { id: 'balanced', name: 'Balanced', scores: [14, 14, 13, 12, 11, 10] }
+    ],
+    rolls: [
+      { id: '4d6d1', name: '4d6 drop lowest', fn: roll4d6dropLowest },
+      { id: '3d6', name: '3d6 straight (gritty)', fn: roll3d6 }
+    ],
+    manual: { min: 1, max: 20 }
+  },
+
+  skills: [
+    { id: 'acrobatics', name: 'Acrobatics', ability: 'dex' },
+    { id: 'animal', name: 'Animal Handling', ability: 'wis' },
+    { id: 'arcana', name: 'Arcana', ability: 'int' },
+    { id: 'athletics', name: 'Athletics', ability: 'str' },
+    { id: 'deception', name: 'Deception', ability: 'cha' },
+    { id: 'history', name: 'History', ability: 'int' },
+    { id: 'insight', name: 'Insight', ability: 'wis' },
+    { id: 'intimidation', name: 'Intimidation', ability: 'cha' },
+    { id: 'investigation', name: 'Investigation', ability: 'int' },
+    { id: 'medicine', name: 'Medicine', ability: 'wis' },
+    { id: 'nature', name: 'Nature', ability: 'int' },
+    { id: 'perception', name: 'Perception', ability: 'wis' },
+    { id: 'performance', name: 'Performance', ability: 'cha' },
+    { id: 'persuasion', name: 'Persuasion', ability: 'cha' },
+    { id: 'religion', name: 'Religion', ability: 'int' },
+    { id: 'sleight', name: 'Sleight of Hand', ability: 'dex' },
+    { id: 'stealth', name: 'Stealth', ability: 'dex' },
+    { id: 'survival', name: 'Survival', ability: 'wis' }
+  ],
+
+  /* Species in 5.5e carry no fixed ASIs. Suggested ability score increases
+     are listed in the background entries and assigned by the player. */
+  lineages: [
+    {
+      id: 'dwarf', name: 'Dwarf', size: 'Medium', speed: 30, asi: {},
+      languages: ['Common', 'Dwarvish'],
+      traits: [
+        { name: 'Darkvision', text: '120 ft.' },
+        { name: 'Dwarven Resilience', text: 'Resistance to poison damage; advantage on saves vs. poison.' },
+        { name: 'Dwarven Toughness', text: '+1 HP per level.' },
+        { name: 'Stonecunning', text: 'Tremorsense 60 ft. for 10 min when on stone/metal; Proficiency Bonus uses per long rest.' },
+        { name: 'Forge Wise', text: 'Proficiency with one artisan\u2019s tool of your choice.' }
+      ],
+      subs: [
+        { id: 'hill', name: 'Hill Dwarf', asi: {}, traits: [] },
+        { id: 'mountain', name: 'Mountain Dwarf', asi: {}, traits: [] }
+      ]
+    },
+    {
+      id: 'elf', name: 'Elf', size: 'Medium', speed: 30, asi: {},
+      languages: ['Common', 'Elvish'],
+      grantSkills: ['perception'],
+      traits: [
+        { name: 'Darkvision', text: '60 ft.' },
+        { name: 'Keen Senses', text: 'Proficiency in Perception.' },
+        { name: 'Fey Ancestry', text: 'Advantage on saves vs. charmed; magic can\u2019t put you to sleep.' },
+        { name: 'Trance', text: 'Meditate 4 hours instead of sleeping 8.' }
+      ],
+      subs: [
+        { id: 'high', name: 'High Elf', asi: {}, traits: [{ name: 'Elf Weapon Training', text: 'Longsword, shortsword, shortbow, longbow.' }, { name: 'Cantrip', text: 'One wizard cantrip, Intelligence-based.' }, { name: 'Extra Language', text: 'One extra language of your choice.' }] },
+        { id: 'wood', name: 'Wood Elf', asi: {}, speed: 35, traits: [{ name: 'Elf Weapon Training', text: 'Longsword, shortsword, shortbow, longbow.' }, { name: 'Fleet of Foot', text: 'Base speed 35 ft.' }, { name: 'Mask of the Wild', text: 'Hide when lightly obscured by natural phenomena.' }] },
+        { id: 'drow', name: 'Dark Elf (Drow)', asi: {}, traits: [{ name: 'Superior Darkvision', text: '120 ft.' }, { name: 'Sunlight Sensitivity', text: 'Disadvantage on attacks and Perception in direct sunlight.' }, { name: 'Drow Magic', text: 'Dancing Lights; Faerie Fire at 3rd; Darkness at 5th (Cha).' }, { name: 'Drow Weapon Training', text: 'Rapier, shortsword, hand crossbow.' }] }
+      ]
+    },
+    {
+      id: 'halfling', name: 'Halfling', size: 'Small', speed: 30, asi: {},
+      languages: ['Common', 'Halfling'],
+      traits: [
+        { name: 'Lucky', text: 'Reroll a 1 on an attack, check, or save.' },
+        { name: 'Brave', text: 'Advantage on saves vs. frightened.' },
+        { name: 'Halfling Nimbleness', text: 'Move through the space of larger creatures.' },
+        { name: 'Naturally Stealthy', text: 'Hide behind a creature one size larger.' }
+      ], subs: []
+    },
+    {
+      id: 'human', name: 'Human', size: 'Medium', speed: 30, asi: {},
+      languages: ['Common'], extraLanguages: 1,
+      traits: [
+        { name: 'Resourceful', text: 'Heroic Inspiration whenever you finish a long rest.' },
+        { name: 'Skillful', text: 'Proficiency in one skill of your choice.' },
+        { name: 'Versatile', text: 'Choose one Origin feat.' }
+      ], subs: []
+    },
+    {
+      id: 'dragonborn', name: 'Dragonborn', size: 'Medium', speed: 30, asi: {},
+      languages: ['Common', 'Draconic'],
+      choice: { key: 'ancestry', label: 'Draconic Ancestry', options: ['Black (acid, 5x30 line, Dex)', 'Blue (lightning, 5x30 line, Dex)', 'Brass (fire, 5x30 line, Dex)', 'Bronze (lightning, 5x30 line, Dex)', 'Copper (acid, 5x30 line, Dex)', 'Gold (fire, 15 cone, Dex)', 'Green (poison, 15 cone, Con)', 'Red (fire, 15 cone, Dex)', 'Silver (cold, 15 cone, Con)', 'White (cold, 15 cone, Con)'] },
+      traits: [
+        { name: 'Breath Weapon', text: '1d10 + prof bonus damage (scales), DC 8 + Con + prof.' },
+        { name: 'Damage Resistance', text: 'Resistance to your ancestry\u2019s damage type.' },
+        { name: 'Draconic Flight', text: 'At 5th level: fly speed equal to your walking speed (no armor).' }
+      ], subs: []
+    },
+    {
+      id: 'gnome', name: 'Gnome', size: 'Small', speed: 30, asi: {},
+      languages: ['Common', 'Gnomish'],
+      traits: [
+        { name: 'Darkvision', text: '60 ft.' },
+        { name: 'Gnomish Cunning', text: 'Advantage on Int, Wis, and Cha saves.' },
+        { name: 'Gnomish Lineage', text: 'Choose: Forest Gnome (Minor Illusion cantrip; speak with animals 1/day) or Rock Gnome (Prestidigitation cantrip; Tinker feature).' }
+      ], subs: []
+    },
+    {
+      id: 'goliath', name: 'Goliath', size: 'Medium', speed: 35, asi: {},
+      languages: ['Common', 'Giant'],
+      traits: [
+        { name: 'Giant Ancestry', text: 'Choose one giant type for a magical benefit usable once per long rest: Cloud (Misty Step), Fire (d6 fire burst 15-ft), Frost (Cold Resistance), Hill (knock Prone), Stone (Petrified 1 round), Storm (Fly speed 10 ft/turn for 1 min).' },
+        { name: 'Large Form', text: 'Bonus Action to become Large until end of turn; Proficiency Bonus uses per long rest.' },
+        { name: 'Powerful Build', text: 'Count as Large for carrying capacity and push/drag/lift.' }
+      ], subs: []
+    },
+    {
+      id: 'orc', name: 'Orc', size: 'Medium', speed: 30, asi: {},
+      languages: ['Common', 'Orc'],
+      grantSkills: ['intimidation'],
+      traits: [
+        { name: 'Adrenaline Rush', text: 'Bonus Action: Dash and gain THP equal to Proficiency Bonus; Proficiency Bonus uses per long rest.' },
+        { name: 'Darkvision', text: '120 ft.' },
+        { name: 'Relentless Endurance', text: 'Drop to 1 HP instead of 0 once per long rest.' }
+      ], subs: []
+    },
+    {
+      id: 'tiefling', name: 'Tiefling', size: 'Medium', speed: 30, asi: {},
+      languages: ['Common', 'Infernal'],
+      traits: [
+        { name: 'Darkvision', text: '60 ft.' },
+        { name: 'Hellish Resistance', text: 'Resistance to fire damage.' },
+        { name: 'Fiendish Legacy', text: 'Choose Abyssal, Chthonic, or Infernal lineage. Each grants two spells at 1st and 3rd level. Spells use Int, Wis, or Cha (your choice).' }
+      ], subs: []
+    }
+  ],
+
+  classes: [
+    {
+      id: 'barbarian', name: 'Barbarian', hitDie: 12, primary: ['str'], saves: ['str', 'con'],
+      armor: ['Light', 'Medium', 'Shields'], weapons: ['Simple', 'Martial'], tools: [],
+      skillCount: 2, skillList: ['animal', 'athletics', 'intimidation', 'nature', 'perception', 'survival'],
+      asiLevels: ASI_55E, subclassLevel: 3, unarmoredAC: 'con',
+      features: {
+        1: ['Rage (uses = Prof Bonus; +2 damage; resist B/P/S)', 'Unarmored Defense (10 + Dex + Con)', 'Weapon Mastery (2 weapons)'],
+        2: ['Reckless Attack', 'Danger Sense'],
+        3: ['Primal Knowledge', 'Primal Path'],
+        5: ['Extra Attack', 'Fast Movement (+10 ft.)', 'Weapon Mastery +1'],
+        7: ['Feral Instinct', 'Instinctive Pounce'],
+        9: ['Brutal Strike (1d10 extra, replaces Brutal Critical)', 'Primal Knowledge +1 skill'],
+        11: ['Relentless Rage', 'Brutal Strike +1d10'],
+        13: ['Brutal Strike 2 effects'],
+        15: ['Persistent Rage', 'Improved Brutal Strike'],
+        17: ['Brutal Strike +2d10', 'Weapon Mastery +1'],
+        18: ['Indomitable Might'],
+        20: ['Primal Champion (+4 Str and Con, max 25)']
+      },
+      subclasses: [
+        { id: 'berserker', name: 'Path of the Berserker', note: 'Frenzy (Mindless Rage), Retaliation.' },
+        { id: 'totem', name: 'Path of the Totem Warrior', note: 'Spirit Seeker, Totem Spirit (bear/eagle/wolf), Aspect of the Beast.' }
+      ],
+      startEquip: ["Greataxe or any martial melee weapon", "Two handaxes or any simple weapon", "Explorer's pack", "Four javelins"]
+    },
+    {
+      id: 'bard', name: 'Bard', hitDie: 8, primary: ['cha'], saves: ['dex', 'cha'],
+      armor: ['Light'], weapons: ['Simple', 'Hand crossbow', 'Longsword', 'Rapier', 'Shortsword'], tools: ['Three musical instruments'],
+      skillCount: 3, skillList: 'any', asiLevels: ASI_55E, subclassLevel: 3,
+      spellcasting: { ability: 'cha', kind: 'full', prepares: false, cantripsByLevel: { 1: 2, 4: 3, 10: 4 } },
+      features: {
+        1: ['Spellcasting', 'Bardic Inspiration (Cha mod uses/long rest, d6)'],
+        2: ['Expertise (2 skills)', 'Jack of All Trades'],
+        3: ['Bard Subclass'],
+        5: ['Bardic Inspiration (d8)', 'Font of Inspiration (short rest recovery)'],
+        7: ['Countercharm'],
+        9: ['Expertise (2 more)'],
+        10: ['Bardic Inspiration (d10)', 'Magical Secrets'],
+        15: ['Bardic Inspiration (d12)'],
+        18: ['Superior Bardic Inspiration'],
+        20: ['Words of Creation']
+      },
+      subclasses: [
+        { id: 'lore', name: 'College of Lore', note: 'Bonus proficiencies, Cutting Words, Additional Magical Secrets.' },
+        { id: 'valor', name: 'College of Valor', note: 'Medium armor/shield/martial weapons, Combat Inspiration, Extra Attack.' }
+      ],
+      startEquip: ["Rapier, longsword, or any simple weapon", "Diplomat's or entertainer's pack", "Lute or other instrument", "Leather armor", "Dagger"]
+    },
+    {
+      id: 'cleric', name: 'Cleric', hitDie: 8, primary: ['wis'], saves: ['wis', 'cha'],
+      armor: ['Light', 'Medium', 'Shields'], weapons: ['Simple'], tools: [],
+      skillCount: 2, skillList: ['history', 'insight', 'medicine', 'persuasion', 'religion'],
+      asiLevels: ASI_55E, subclassLevel: 3,
+      spellcasting: { ability: 'wis', kind: 'full', prepares: true, cantripsByLevel: { 1: 3, 4: 4, 10: 5 } },
+      features: {
+        1: ['Spellcasting (prepare from entire list)', 'Divine Order (Protector or Thaumaturge)'],
+        2: ['Channel Divinity (2 uses)', 'Turn Undead', 'Divine Spark'],
+        5: ['Smite Undead (destroy threshold CR 1/2)'],
+        6: ['Channel Divinity (3 uses)'],
+        8: ['Blessed Strikes'],
+        9: ['Commune (1/long rest)'],
+        10: ['Divine Intervention'],
+        11: ['Destroy Undead (CR 1)'],
+        14: ['Destroy Undead (CR 2)'],
+        17: ['Destroy Undead (CR 3)', 'Domain feature'],
+        18: ['Channel Divinity (4 uses)'],
+        20: ['Greater Divine Intervention']
+      },
+      subclasses: [
+        { id: 'life', name: 'Life Domain', note: 'Heavy armor, Disciple of Life, Preserve Life, Blessed Healer.' },
+        { id: 'light', name: 'Light Domain', note: 'Light cantrip, Warding Flare, Radiance of the Dawn.' },
+        { id: 'trickery', name: 'Trickery Domain', note: 'Blessing of the Trickster, Invoke Duplicity.' },
+        { id: 'war', name: 'War Domain', note: 'Heavy armor, martial weapons, War Priest.' }
+      ],
+      startEquip: ["Mace or warhammer (if proficient)", "Scale mail, leather, or chain mail", "Light crossbow + 20 bolts or any simple weapon", "Priest's pack", "Shield and holy symbol"]
+    },
+    {
+      id: 'druid', name: 'Druid', hitDie: 8, primary: ['wis'], saves: ['int', 'wis'],
+      armor: ['Light', 'Medium', 'Shields (nonmetal)'], weapons: ['Club', 'Dagger', 'Dart', 'Javelin', 'Mace', 'Quarterstaff', 'Scimitar', 'Sickle', 'Sling', 'Spear'], tools: ['Herbalism kit'],
+      skillCount: 2, skillList: ['arcana', 'animal', 'insight', 'medicine', 'nature', 'perception', 'religion', 'survival'],
+      asiLevels: ASI_55E, subclassLevel: 2,
+      spellcasting: { ability: 'wis', kind: 'full', prepares: true, cantripsByLevel: { 1: 2, 4: 3, 10: 4 } },
+      features: {
+        1: ['Primal Order (Magician or Warden)', 'Spellcasting'],
+        2: ['Wild Shape (CR 1/4 beasts)', 'Wild Companion (Find Familiar 1/long rest)'],
+        4: ['Wild Shape (CR 1/2, swim)'],
+        8: ['Wild Shape (CR 1, fly)'],
+        9: ['Wild Resurgence (use slot for Wild Shape, or vice versa)'],
+        18: ['Timeless Body', 'Beast Spells'],
+        20: ['Archdruid (unlimited Wild Shape; natural armor 20)']
+      },
+      subclasses: [
+        { id: 'land', name: 'Circle of the Land', note: "Natural Recovery, Circle Spells, Land's Stride, Nature's Ward." },
+        { id: 'moon', name: 'Circle of the Moon', note: 'Combat Wild Shape (d6 heal as Bonus Action, higher CR beasts), Primal Strike.' }
+      ],
+      startEquip: ["Wooden shield or any simple weapon", "Scimitar or any simple melee weapon", "Leather armor", "Explorer's pack", "Druidic focus"]
+    },
+    {
+      id: 'fighter', name: 'Fighter', hitDie: 10, primary: ['str', 'dex'], saves: ['str', 'con'],
+      armor: ['All armor', 'Shields'], weapons: ['Simple', 'Martial'], tools: [],
+      skillCount: 2, skillList: ['acrobatics', 'animal', 'athletics', 'history', 'insight', 'intimidation', 'perception', 'survival'],
+      asiLevels: ASI_55E_FIGHTER, subclassLevel: 3,
+      features: {
+        1: ['Fighting Style (feat of choice)', 'Second Wind', 'Weapon Mastery (3 weapons)'],
+        2: ['Action Surge (1 use)', 'Tactical Mind (d10 on failed ability check)'],
+        3: ['Martial Archetype', 'Weapon Mastery +1'],
+        5: ['Extra Attack', 'Tactical Shift (rearrange conditions on Action Surge)'],
+        9: ['Indomitable (1 use)', 'Master of Armaments (regain Weapon Mastery on short rest)'],
+        11: ['Two Extra Attacks', 'Studied Attacks (advantage after miss)'],
+        13: ['Indomitable (2 uses)'],
+        17: ['Action Surge (2 uses)', 'Indomitable (3 uses)'],
+        20: ['Three Extra Attacks', 'Weapon Mastery (all martial weapons)']
+      },
+      choices: [{ key: 'fightingStyle', label: 'Fighting Style feat', options: ['Archery (+2 ranged attack)', 'Defense (+1 AC in armor)', 'Dueling (+2 melee damage, one-handed)', 'Great Weapon Fighting (reroll 1s/2s, two-handed)', 'Protection (impose disadvantage w/ shield reaction)', 'Two-Weapon Fighting (add ability mod to off-hand)'] }],
+      subclasses: [
+        { id: 'champion', name: 'Champion', note: 'Improved Critical, Remarkable Athlete, Superior Critical, Survivor.' },
+        { id: 'battlemaster', name: 'Battle Master', note: 'Combat Superiority, maneuvers, superiority dice, Know Your Enemy.' },
+        { id: 'eldritch', name: 'Eldritch Knight', note: 'Third-caster (wizard), Weapon Bond, War Magic, Eldritch Strike.', spellcasting: { ability: 'int', kind: 'third' } }
+      ],
+      startEquip: ["Chain mail or leather + longbow + 20 arrows", "Martial weapon and shield, or two martial weapons", "Light crossbow + 20 bolts, or two handaxes", "Dungeoneer's or explorer's pack"]
+    },
+    {
+      id: 'monk', name: 'Monk', hitDie: 8, primary: ['dex', 'wis'], saves: ['str', 'dex'],
+      armor: [], weapons: ['Simple', 'Shortsword'], tools: ["One artisan's tool or instrument"],
+      skillCount: 2, skillList: ['acrobatics', 'athletics', 'history', 'insight', 'religion', 'stealth'],
+      asiLevels: ASI_55E, subclassLevel: 3, unarmoredAC: 'wis',
+      features: {
+        1: ['Martial Arts (d6)', 'Unarmored Defense (10 + Dex + Wis)'],
+        2: ["Monk's Focus (Discipline Points = level; Flurry/Patient Defense/Step of Wind)", 'Unarmored Movement +10', 'Uncanny Metabolism'],
+        3: ['Monastic Tradition', 'Deflect Attacks (reduce damage; catch and throw projectiles)'],
+        4: ['Slow Fall'],
+        5: ['Extra Attack', 'Stunning Strike', 'Martial Arts d8'],
+        6: ['Empowered Strikes (Radiant or Necrotic option)', 'Unarmored Movement +15'],
+        7: ['Evasion', 'Stillness of Mind'],
+        10: ["Self-Restoration (end one condition per long rest)", 'Unarmored Movement +20'],
+        11: ['Martial Arts d10'],
+        13: ['Tongue of the Sun and Moon'],
+        14: ['Diamond Soul', 'Unarmored Movement +25'],
+        15: ['Timeless Body'],
+        17: ['Martial Arts d12'],
+        18: ['Superior Defense (resistance B/P/S in Unarmored Defense)', 'Unarmored Movement +30'],
+        20: ['Body and Mind (+4 Dex and Wis, max 25)']
+      },
+      subclasses: [
+        { id: 'open', name: 'Warrior of the Open Hand', note: 'Open Hand Technique, Wholeness of Body, Fleet Step, Quivering Palm.' },
+        { id: 'shadow', name: 'Warrior of Shadow', note: 'Shadow Arts, Shadow Step, Cloak of Shadows, Opportunist.' },
+        { id: 'element', name: 'Warrior of the Elements', note: 'Elemental Attunement, Manipulate Elements, Elemental Burst.' }
+      ],
+      startEquip: ["Shortsword or any simple weapon", "Dungeoneer's or explorer's pack", "5 darts"]
+    },
+    {
+      id: 'paladin', name: 'Paladin', hitDie: 10, primary: ['str', 'cha'], saves: ['wis', 'cha'],
+      armor: ['All armor', 'Shields'], weapons: ['Simple', 'Martial'], tools: [],
+      skillCount: 2, skillList: ['athletics', 'insight', 'intimidation', 'medicine', 'persuasion', 'religion'],
+      asiLevels: ASI_55E, subclassLevel: 3,
+      spellcasting: { ability: 'cha', kind: 'half', prepares: true },
+      features: {
+        1: ['Divine Sense', 'Lay on Hands (5 \u00d7 level HP pool)'],
+        2: ["Fighting Style (feat)", "Paladin's Smite (Divine Smite as a spell)", 'Spellcasting', 'Weapon Mastery (3)'],
+        3: ['Channel Divinity (2 uses)', 'Sacred Oath'],
+        5: ['Extra Attack', 'Faithful Steed (Find Steed 1/long rest)'],
+        6: ['Aura of Protection (Cha mod to saves, 10 ft.)'],
+        9: ['Abjure Foes (Channel Divinity: Frightened/Incapacitated)'],
+        10: ['Aura of Courage (immune frightened)'],
+        11: ['Radiant Strikes (+1d8 radiant on weapon attacks)'],
+        14: ["Restoring Touch (remove condition with Lay on Hands, costs 5 HP)"],
+        18: ['Aura improvements (30 ft.)'],
+        20: ['Aura Expansion']
+      },
+      choices: [{ key: 'fightingStyle', label: 'Fighting Style feat (2nd level)', options: ['Defense', 'Dueling', 'Great Weapon Fighting', 'Protection', 'Blessed Warrior (cantrip)', 'Blind Fighting (10 ft. Blindsight)'] }],
+      subclasses: [
+        { id: 'devotion', name: 'Oath of Devotion', note: 'Sacred Weapon, Holy Nimbus, Aura of Devotion.' },
+        { id: 'ancients', name: 'Oath of the Ancients', note: "Nature's Wrath, Turn the Faithless, Aura of Warding, Elder Champion." },
+        { id: 'vengeance', name: 'Oath of Vengeance', note: 'Vow of Enmity, Relentless Avenger, Soul of Vengeance, Avenging Angel.' }
+      ],
+      startEquip: ["Martial weapon and shield, or two martial weapons", "Five javelins or any simple melee weapon", "Priest's pack", "Chain mail and holy symbol"]
+    },
+    {
+      id: 'ranger', name: 'Ranger', hitDie: 10, primary: ['dex', 'wis'], saves: ['str', 'dex'],
+      armor: ['Light', 'Medium', 'Shields'], weapons: ['Simple', 'Martial'], tools: [],
+      skillCount: 3, skillList: ['animal', 'athletics', 'insight', 'investigation', 'nature', 'perception', 'stealth', 'survival'],
+      asiLevels: ASI_55E, subclassLevel: 3,
+      spellcasting: { ability: 'wis', kind: 'half', prepares: false },
+      features: {
+        1: ['Expertise (2 skills)', "Favored Enemy (Hunter's Mark once free per long rest)", 'Weapon Mastery (2)'],
+        2: ['Deft Explorer (Expertise, languages)', 'Fighting Style (feat)', 'Spellcasting'],
+        3: ['Ranger Archetype', 'Roving (+5 ft. speed, Climb and Swim)'],
+        4: ['Weapon Mastery +1'],
+        5: ['Extra Attack', 'Tireless (d8 THP; Wis mod uses per long rest)'],
+        6: ['Deft Explorer improvement'],
+        8: ['Conjure Barrage (3rd-level spell)'],
+        14: ['Precise Hunter'],
+        15: ['Feral Senses'],
+        18: ["Foe Slayer (add Wis to attack or damage 1/turn vs. Hunter's Mark target)"],
+        20: ['Epic Boon']
+      },
+      choices: [{ key: 'fightingStyle', label: 'Fighting Style feat (2nd level)', options: ['Archery', 'Defense', 'Druidic Warrior (2 druid cantrips)', 'Thrown Weapon Fighting'] }],
+      subclasses: [
+        { id: 'hunter', name: 'Hunter', note: "Hunter's Prey, Defensive Tactics, Multiattack, Superior Hunter's Defense." },
+        { id: 'beastmaster', name: 'Beast Master', note: 'Primal Companion (beast stat block), Exceptional Training, Bestial Fury, Share Spells.' }
+      ],
+      startEquip: ["Scale mail or leather armor", "Two shortswords or two simple melee weapons", "Dungeoneer's or explorer's pack", "Longbow and quiver of 20 arrows"]
+    },
+    {
+      id: 'rogue', name: 'Rogue', hitDie: 8, primary: ['dex'], saves: ['dex', 'int'],
+      armor: ['Light'], weapons: ['Simple', 'Hand crossbow', 'Longsword', 'Rapier', 'Shortsword'], tools: ["Thieves' tools"],
+      skillCount: 4, skillList: ['acrobatics', 'athletics', 'deception', 'insight', 'intimidation', 'investigation', 'perception', 'performance', 'persuasion', 'sleight', 'stealth'],
+      asiLevels: ASI_55E_ROGUE, subclassLevel: 3, expertise: { level: 1, count: 2 },
+      features: {
+        1: ['Expertise (2 skills)', 'Sneak Attack (1d6)', "Thieves' Cant (+Initiative bonus)", 'Weapon Mastery (2)'],
+        2: ['Cunning Action', 'Cunning Strike (conditions on Sneak Attack)'],
+        3: ['Roguish Archetype', 'Sneak Attack 2d6', 'Steady Aim (Bonus Action for advantage)'],
+        5: ['Uncanny Dodge', 'Sneak Attack 3d6'],
+        6: ['Expertise (2 more)'],
+        7: ['Evasion', 'Sneak Attack 4d6'],
+        11: ['Reliable Talent'],
+        14: ['Slippery Mind (proficiency in Wis saves)'],
+        15: ['Elusive (no advantage against you unless incapacitated)'],
+        18: ['Stroke of Luck (treat any d20 as 20, 1/short rest)'],
+        20: ['Sneak Attack 10d6', 'Epic Boon']
+      },
+      subclasses: [
+        { id: 'thief', name: 'Thief', note: "Fast Hands, Second-Story Work, Supreme Sneak, Thief's Reflexes." },
+        { id: 'assassin', name: 'Assassin', note: 'Assassinate, Infiltration Expertise, Impostor, Death Strike.' },
+        { id: 'trickster', name: 'Arcane Trickster', note: 'Third-caster (wizard illusion/enchantment), Mage Hand Legerdemain.', spellcasting: { ability: 'int', kind: 'third' } }
+      ],
+      startEquip: ["Rapier or shortsword", "Shortbow + 20 arrows, or shortsword", "Burglar's, dungeoneer's, or explorer's pack", "Leather armor, two daggers, thieves' tools"]
+    },
+    {
+      id: 'sorcerer', name: 'Sorcerer', hitDie: 6, primary: ['cha'], saves: ['con', 'cha'],
+      armor: [], weapons: ['Dagger', 'Dart', 'Sling', 'Quarterstaff', 'Light crossbow'], tools: [],
+      skillCount: 2, skillList: ['arcana', 'deception', 'insight', 'intimidation', 'persuasion', 'religion'],
+      asiLevels: ASI_55E, subclassLevel: 1,
+      spellcasting: { ability: 'cha', kind: 'full', prepares: false, cantripsByLevel: { 1: 4, 4: 5, 10: 6 } },
+      features: {
+        1: ['Spellcasting', 'Innate Sorcery (Cha mod/long rest; advantage on Concentration saves and spell attacks)', 'Sorcerous Origin'],
+        2: ['Font of Magic (sorcery points = level)'],
+        3: ['Metamagic (2 options)'],
+        5: ['Sorcerous Restoration (regain 4 points per short rest)'],
+        7: ['Innate Sorcery improvement'],
+        10: ['Metamagic (3rd option)'],
+        17: ['Metamagic (4th option)'],
+        20: ['Arcane Apotheosis (cast signature spell without slot; Cha mod/long rest)']
+      },
+      subclasses: [
+        { id: 'draconic', name: 'Draconic Sorcery', note: 'Dragon Ancestor, Draconic Resilience (+HP/level, AC 13+Dex), Dragon Wings.', hpBonusPerLevel: 1 },
+        { id: 'wild', name: 'Wild Magic Sorcery', note: 'Wild Magic Surge, Tides of Chaos, Bend Luck, Unstable Backlash, Wild Bombardment.' }
+      ],
+      startEquip: ["Light crossbow + 20 bolts, or any simple weapon", "Component pouch or arcane focus", "Dungeoneer's or explorer's pack", "Two daggers"]
+    },
+    {
+      id: 'warlock', name: 'Warlock', hitDie: 8, primary: ['cha'], saves: ['wis', 'cha'],
+      armor: ['Light'], weapons: ['Simple'], tools: [],
+      skillCount: 2, skillList: ['arcana', 'deception', 'history', 'intimidation', 'investigation', 'nature', 'religion'],
+      asiLevels: ASI_55E, subclassLevel: 1,
+      spellcasting: { ability: 'cha', kind: 'pact', prepares: false, cantripsByLevel: { 1: 2, 4: 3, 10: 4 } },
+      features: {
+        1: ['Eldritch Invocations (1)', 'Otherworldly Patron', 'Pact Magic (short or long rest recovery)'],
+        2: ['Eldritch Invocations (3)', 'Magical Cunning (regain half Pact slots 1/long rest)'],
+        3: ['Eldritch Invocations (4)', 'Pact Boon'],
+        5: ['Eldritch Invocations (5, Boon unlocked)'],
+        9: ['Contact Patron (Commune once per long rest)'],
+        11: ['Mystic Arcanum (6th)'], 13: ['Mystic Arcanum (7th)'],
+        15: ['Mystic Arcanum (8th)'], 17: ['Mystic Arcanum (9th)'],
+        20: ['Eldritch Master (recover all Pact slots 1/long rest as action)']
+      },
+      choices: [{ key: 'pactBoon', label: 'Pact Boon (3rd level)', options: ["Pact of the Blade (summon weapon; melee with Cha)", "Pact of the Chain (familiar; touch delivery)", "Pact of the Talisman (skill add d4; hand it off)", "Pact of the Tome (3 cantrips + extra)"] }],
+      subclasses: [
+        { id: 'archfey', name: 'The Archfey', note: 'Fey Presence, Misty Escape, Beguiling Defenses, Dark Delirium.' },
+        { id: 'fiend', name: 'The Fiend', note: "Dark One's Blessing, Dark One's Own Luck, Fiendish Resilience, Hurl Through Hell." },
+        { id: 'greatold', name: 'The Great Old One', note: 'Awakened Mind, Entropic Ward, Thought Shield, Create Thrall.' }
+      ],
+      startEquip: ["Light crossbow + 20 bolts, or any simple weapon", "Component pouch or arcane focus", "Scholar's or dungeoneer's pack", "Leather armor, any simple weapon, two daggers"]
+    },
+    {
+      id: 'wizard', name: 'Wizard', hitDie: 6, primary: ['int'], saves: ['int', 'wis'],
+      armor: [], weapons: ['Dagger', 'Dart', 'Sling', 'Quarterstaff', 'Light crossbow'], tools: [],
+      skillCount: 2, skillList: ['arcana', 'history', 'insight', 'investigation', 'medicine', 'religion'],
+      asiLevels: ASI_55E, subclassLevel: 2,
+      spellcasting: { ability: 'int', kind: 'full', prepares: true, cantripsByLevel: { 1: 3, 4: 4, 10: 5 } },
+      features: {
+        1: ['Arcane Recovery', 'Spellcasting', 'Ritual Adept (cast rituals without preparing)'],
+        2: ['Arcane Tradition (Subclass)', 'Scholar (Arcana or History expertise)'],
+        5: ['Memorize Spell (cast one prepared spell free 1/long rest)'],
+        18: ['Spell Mastery (cast two spells without slots)'],
+        20: ["Signature Spells (two 3rd-level spells free per short rest)"]
+      },
+      subclasses: [
+        { id: 'abjuration', name: 'Abjurer', note: 'Abjuration Savant, Arcane Ward, Projected Ward, Spell Resistance.' },
+        { id: 'conjuration', name: 'Conjurer', note: 'Minor Conjuration, Benign Transposition, Focused Conjuration, Durable Summons.' },
+        { id: 'divination', name: 'Diviner', note: 'Portent, Expert Divination, Third Eye, Greater Portent.' },
+        { id: 'enchantment', name: 'Enchanter', note: 'Hypnotic Gaze, Instinctive Charm, Split Enchantment, Alter Memories.' },
+        { id: 'evocation', name: 'Evoker', note: 'Sculpt Spells, Potent Cantrip, Empowered Evocation, Overchannel.' },
+        { id: 'illusion', name: 'Illusionist', note: 'Improved Minor Illusion, Malleable Illusions, Illusory Self, Illusory Reality.' },
+        { id: 'necromancy', name: 'Necromancer', note: 'Grim Harvest, Undead Thralls, Inured to Undeath, Command Undead.' },
+        { id: 'transmutation', name: 'Transmuter', note: "Minor Alchemy, Transmuter's Stone, Shapechanger, Master Transmuter." }
+      ],
+      startEquip: ["Quarterstaff or dagger", "Component pouch or arcane focus", "Scholar's or explorer's pack", "Spellbook"]
+    }
+  ],
+
+  /* Backgrounds in 5.5e provide ability score increases. suggestedAsi is
+     advisory; the player records their actual choice in c.bgAsiAssign. */
+  backgrounds: [
+    { id: 'acolyte', name: 'Acolyte', skills: ['insight', 'religion'], tools: [], languages: 2, feature: 'Shelter of the Faithful', suggestedAsi: { wis: 2, int: 1 }, equip: ['Holy symbol', 'Prayer book', '5 sticks of incense', 'Vestments', 'Common clothes', '15 gp'] },
+    { id: 'charlatan', name: 'Charlatan', skills: ['deception', 'sleight'], tools: ['Disguise kit', 'Forgery kit'], languages: 0, feature: 'False Identity', suggestedAsi: { cha: 2, dex: 1 }, equip: ['Fine clothes', 'Disguise kit', 'Con tools', '15 gp'] },
+    { id: 'criminal', name: 'Criminal', skills: ['deception', 'stealth'], tools: ['One gaming set', "Thieves' tools"], languages: 0, feature: 'Criminal Contact', suggestedAsi: { dex: 2, int: 1 }, equip: ['Crowbar', 'Dark common clothes with hood', '15 gp'] },
+    { id: 'entertainer', name: 'Entertainer', skills: ['acrobatics', 'performance'], tools: ['Disguise kit', 'One instrument'], languages: 0, feature: 'By Popular Demand', suggestedAsi: { cha: 2, dex: 1 }, equip: ['Musical instrument', 'Favor of an admirer', 'Costume', '15 gp'] },
+    { id: 'folkhero', name: 'Folk Hero', skills: ['animal', 'survival'], tools: ["One artisan's tools", 'Vehicles (land)'], languages: 0, feature: 'Rustic Hospitality', suggestedAsi: { con: 2, str: 1 }, equip: ["Artisan's tools", 'Shovel', 'Iron pot', 'Common clothes', '10 gp'] },
+    { id: 'guild', name: 'Guild Artisan', skills: ['insight', 'persuasion'], tools: ["One artisan's tools"], languages: 1, feature: 'Guild Membership', suggestedAsi: { int: 2, cha: 1 }, equip: ["Artisan's tools", 'Letter of introduction', "Traveler's clothes", '15 gp'] },
+    { id: 'hermit', name: 'Hermit', skills: ['medicine', 'religion'], tools: ['Herbalism kit'], languages: 1, feature: 'Discovery', suggestedAsi: { wis: 2, con: 1 }, equip: ['Scroll case of notes', 'Winter blanket', 'Common clothes', 'Herbalism kit', '5 gp'] },
+    { id: 'noble', name: 'Noble', skills: ['history', 'persuasion'], tools: ['One gaming set'], languages: 1, feature: 'Position of Privilege', suggestedAsi: { cha: 2, int: 1 }, equip: ['Fine clothes', 'Signet ring', 'Scroll of pedigree', '25 gp'] },
+    { id: 'outlander', name: 'Outlander', skills: ['athletics', 'survival'], tools: ['One instrument'], languages: 1, feature: 'Wanderer', suggestedAsi: { str: 2, wis: 1 }, equip: ['Staff', 'Hunting trap', 'Trophy from an animal', "Traveler's clothes", '10 gp'] },
+    { id: 'sage', name: 'Sage', skills: ['arcana', 'history'], tools: [], languages: 2, feature: 'Researcher', suggestedAsi: { int: 2, wis: 1 }, equip: ['Bottle of black ink', 'Quill', 'Small knife', 'Letter from a colleague', 'Common clothes', '10 gp'] },
+    { id: 'sailor', name: 'Sailor', skills: ['athletics', 'perception'], tools: ["Navigator's tools", 'Vehicles (water)'], languages: 0, feature: "Ship's Passage", suggestedAsi: { dex: 2, wis: 1 }, equip: ['Belaying pin (club)', '50 ft. silk rope', 'Lucky charm', 'Common clothes', '10 gp'] },
+    { id: 'soldier', name: 'Soldier', skills: ['athletics', 'intimidation'], tools: ['One gaming set', 'Vehicles (land)'], languages: 0, feature: 'Military Rank', suggestedAsi: { str: 2, con: 1 }, equip: ['Insignia of rank', 'Trophy from a fallen enemy', 'Dice or cards', 'Common clothes', '10 gp'] },
+    { id: 'urchin', name: 'Urchin', skills: ['sleight', 'stealth'], tools: ['Disguise kit', "Thieves' tools"], languages: 0, feature: 'City Secrets', suggestedAsi: { dex: 2, int: 1 }, equip: ['Small knife', 'City map', 'Pet mouse', 'Token of your parents', 'Common clothes', '10 gp'] }
+  ],
+
+  armorList: [
+    { name: 'None', ac: 10, type: 'none' },
+    { name: 'Padded', ac: 11, type: 'light', stealthDis: true },
+    { name: 'Leather', ac: 11, type: 'light' },
+    { name: 'Studded Leather', ac: 12, type: 'light' },
+    { name: 'Hide', ac: 12, type: 'medium' },
+    { name: 'Chain Shirt', ac: 13, type: 'medium' },
+    { name: 'Scale Mail', ac: 14, type: 'medium', stealthDis: true },
+    { name: 'Breastplate', ac: 14, type: 'medium' },
+    { name: 'Half Plate', ac: 15, type: 'medium', stealthDis: true },
+    { name: 'Ring Mail', ac: 14, type: 'heavy', strReq: 0, stealthDis: true },
+    { name: 'Chain Mail', ac: 16, type: 'heavy', strReq: 13, stealthDis: true },
+    { name: 'Splint', ac: 17, type: 'heavy', strReq: 15, stealthDis: true },
+    { name: 'Plate', ac: 18, type: 'heavy', strReq: 15, stealthDis: true }
+  ],
+
+  languages: ['Common', 'Dwarvish', 'Elvish', 'Giant', 'Gnomish', 'Goblin', 'Halfling', 'Orc', 'Abyssal', 'Celestial', 'Draconic', 'Deep Speech', 'Infernal', 'Primordial', 'Sylvan', 'Undercommon'],
+
+  alignments: ['Lawful Good', 'Neutral Good', 'Chaotic Good', 'Lawful Neutral', 'Neutral', 'Chaotic Neutral', 'Lawful Evil', 'Neutral Evil', 'Chaotic Evil'],
+
+  feats: [
+    'Ability Score Improvement (+2 to one ability, or +1 to two)',
+    'Alert (+5 initiative, no Surprised condition)',
+    'Athlete', 'Actor', 'Charger', 'Crossbow Expert',
+    'Defensive Duelist', 'Dual Wielder', 'Dungeon Delver', 'Durable',
+    'Elemental Adept', 'Grappler', 'Great Weapon Master', 'Healer',
+    'Heavily Armored', 'Heavy Armor Master', 'Inspiring Leader',
+    'Keen Mind', 'Lightly Armored', 'Linguist',
+    'Lucky (3 luck points)', 'Mage Slayer', 'Magic Initiate (choose a class list)',
+    'Martial Adept', 'Medium Armor Master', 'Mobile (+10 ft. speed)',
+    'Moderately Armored', 'Mounted Combatant', 'Observant',
+    'Polearm Master', 'Resilient', 'Ritual Caster', 'Savage Attacker',
+    'Sentinel', 'Sharpshooter', 'Shield Master',
+    'Skilled (3 skills or tools)', 'Skulker', 'Spell Sniper',
+    'Tavern Brawler', 'Tough (+2 HP per level)', 'War Caster', 'Weapon Master',
+    'Fighting Style: Archery (+2 ranged attack)',
+    'Fighting Style: Defense (+1 AC in armor)',
+    'Fighting Style: Dueling (+2 melee damage, one-handed)',
+    'Fighting Style: Great Weapon Fighting (reroll 1s/2s, two-handed)',
+    'Fighting Style: Protection (impose disadvantage, shield reaction)',
+    'Fighting Style: Two-Weapon Fighting (add ability mod to off-hand)',
+    'Boon of Combat Prowess (melee hits min 10 damage, 1/short rest)',
+    'Boon of Dimensional Travel (Misty Step as Bonus Action, Prof Bonus/long rest)',
+    'Boon of Fate (add/subtract 2d4 to a roll, 1/short rest)',
+    'Boon of Irresistible Offense (ignore Resistance, +damage die)',
+    'Boon of the Night Spirit (Invisible in dim light/darkness when still)',
+    'Boon of Spell Recall (cast one expended spell of 3rd or lower once free)',
+    'Boon of Truesight (Truesight 60 ft.)'
+  ]
+};
+
+/* derive() is identical in mechanics to the 2014 edition \u2014 AC, saves, skills,
+   and spell slots all work the same way. Assign after SYS_5E is defined
+   (20-dnd5e.js loads first) so `this` binds to SYS_55E at call-time and
+   looks up classes/lineages/armorList from this system. */
+SYS_55E.derive = SYS_5E.derive;
+
+
 /* ===== 30-dnd4e.js ===== */
 /* ============================================================
    D&D 4th Edition (PHB1 core)
@@ -2097,9 +2653,9 @@ const SYS_PF2 = {
    Engine: registry, ability-score pipeline, storage, validation
    ============================================================ */
 
-const SYSTEMS = { '5e': SYS_5E, '4e': SYS_4E, pf1: SYS_PF1, pf2: SYS_PF2 };
-const SYSTEM_ORDER = ['5e', '4e', 'pf1', 'pf2'];
-const SYSTEM_SHORT = { '5e': 'D&D 5e', '4e': 'D&D 4e', pf1: 'PF 1e', pf2: 'PF 2e' };
+const SYSTEMS = { '5e': SYS_5E, '5.5e': SYS_55E, '4e': SYS_4E, pf1: SYS_PF1, pf2: SYS_PF2 };
+const SYSTEM_ORDER = ['5e', '5.5e', '4e', 'pf1', 'pf2'];
+const SYSTEM_SHORT = { '5e': 'D&D 5e', '5.5e': 'D&D 5e (2024)', '4e': 'D&D 4e', pf1: 'PF 1e', pf2: 'PF 2e' };
 function sys(id) { return SYSTEMS[id] || SYS_5E; }
 
 /* ---------- blank character ---------- */
@@ -2196,6 +2752,22 @@ function computePf2Scores(c) {
   return { scores: s, trace };
 }
 
+/* Background ASI for 5.5e. The player records their choice as an object in
+   c.bgAsiAssign (e.g. { str: 2, dex: 1 }). The system flag backgroundAsi
+   gates this so it is a no-op for every other system. */
+function backgroundAsiAdjustments(c) {
+  const adj = { str: 0, dex: 0, con: 0, int: 0, wis: 0, cha: 0 };
+  if (!sys(c.systemId).backgroundAsi) return adj;
+  const assign = c.bgAsiAssign;
+  if (!assign || typeof assign !== 'object') return adj;
+  let total = 0;
+  ABIL6.forEach(a => {
+    const v = Number(assign[a]) || 0;
+    if (v > 0 && total + v <= 3) { adj[a] += v; total += v; }
+  });
+  return adj;
+}
+
 function computeScores(c) {
   const S = sys(c.systemId);
   if (S.abilityGen.boosts && c.abilityMethod === 'boosts') {
@@ -2225,10 +2797,12 @@ function computeScores(c) {
   c.baseForDisplay = base;
   const race = racialAdjustments(c);
   const lvl = levelAsiAdjustments(c);
+  const bgAdj = backgroundAsiAdjustments(c);
   const out = {};
-  ABIL6.forEach(a => { out[a] = base[a] + race[a] + lvl[a]; });
+  ABIL6.forEach(a => { out[a] = base[a] + race[a] + lvl[a] + bgAdj[a]; });
   c.racialAdj = race;
   c.levelAdj = lvl;
+  c.bgAsiAdj = bgAdj;
   c.finalScores = out;
   return out;
 }
@@ -2272,7 +2846,7 @@ function allowedSkillIds(c) {
     if (lin.chooseSkillsFrom === 'any') list = all.slice();
     else list = [...new Set(list.concat(lin.chooseSkillsFrom))];
   }
-  if (c.systemId === '4e' || c.systemId === '5e') {
+  if (c.systemId === '4e' || c.systemId === '5e' || c.systemId === '5.5e') {
     const sub = lin ? byId(lin.subs || [], c.lineageSubId) : null;
     if (sub && sub.chooseSkills) list = all.slice();
     if (lin && lin.id === 'halfelf' && c.systemId === '5e') list = all.slice();
@@ -2365,16 +2939,23 @@ function validate(c) {
     if (chosen < b.count) issues.push({ level: 'warn', text: 'Choose ' + (b.count - chosen) + ' more skill proficienc' + (b.count - chosen === 1 ? 'y' : 'ies') + '.' });
     if (chosen > b.count) issues.push({ level: 'error', text: 'Too many skills chosen: ' + chosen + ' / ' + b.count + '.' });
   }
-  // 5e expertise
-  if (c.systemId === '5e' && cls && cls.expertise && c.level >= cls.expertise.level) {
+  // 5e/5.5e background ASI
+  if (c.systemId === '5.5e') {
+    const assign = c.bgAsiAssign || {};
+    const total = ABIL6.reduce((t, a) => t + (Number(assign[a]) || 0), 0);
+    if (total < 3) issues.push({ level: 'warn', text: 'Assign your background ability score increases (+2 to one, +1 to another; or +1 to three different abilities).' });
+    if (total > 3) issues.push({ level: 'error', text: 'Background ability increases total ' + total + ' — the maximum is +3.' });
+  }
+  // 5e/5.5e expertise
+  if ((c.systemId === '5e' || c.systemId === '5.5e') && cls && cls.expertise && c.level >= cls.expertise.level) {
     const want = cls.expertise.count + (c.level >= 6 ? 2 : 0);
     if ((c.expertise || []).length < want) issues.push({ level: 'warn', text: 'Pick ' + (want - (c.expertise || []).length) + ' more expertise skill(s).' });
     if ((c.expertise || []).length > want) issues.push({ level: 'error', text: 'Too many expertise picks (max ' + want + ').' });
   }
-  // 5e/PF1 level ASIs
-  if (c.systemId === '5e' || c.systemId === 'pf1') {
+  // 5e/5.5e/PF1 level ASIs
+  if (c.systemId === '5e' || c.systemId === '5.5e' || c.systemId === 'pf1') {
     const d = derive(c);
-    const lv = c.systemId === '5e' ? (cls ? cls.asiLevels : ASI_5E).filter(l => l <= c.level) : [4, 8, 12, 16, 20].filter(l => l <= c.level);
+    const lv = (c.systemId === '5e' || c.systemId === '5.5e') ? (cls ? cls.asiLevels : ASI_5E).filter(l => l <= c.level) : [4, 8, 12, 16, 20].filter(l => l <= c.level);
     lv.forEach(l => {
       const picks = asArray(c.levelAsi[l]).filter(Boolean);
       const need = c.systemId === '5e' ? 2 : 1;
@@ -2440,7 +3021,7 @@ function levelUp(c, to) {
 const app = {
   roster: [],
   currentId: null,
-  view: 'roster',   // roster | build | sheet | campaign | signin
+  view: 'home',   // home | roster | build | sheet | campaign | signin
   step: 0,
   // set to 'dm' or 'party' while looking at your own sheet as someone else
   preview: null,
@@ -2603,6 +3184,7 @@ function render() {
   const focus = sameScreen ? captureFocus() : null;
 
   if (app.view === 'signin') root.innerHTML = viewSignIn();
+  else if (app.view === 'home') root.innerHTML = viewHome();
   else if (app.view === 'campaign') root.innerHTML = viewCampaign();
   else if (app.view === 'roster') root.innerHTML = viewRoster();
   else if (app.view === 'sheet') root.innerHTML = viewSheet();
@@ -2624,12 +3206,19 @@ function topbar() {
     return `<div class="brand">Character Forge<small>Multi-system RPG builder</small></div>
       <div class="spacer"></div>`;
   }
+  if (app.view === 'home') {
+    const who = signedIn() ? STORE.profile : null;
+    const out = who ? `<span class="conn-who" style="font-size:.85rem;color:var(--dim)">${h(who.name)}</span>` : '';
+    const so = isConnected() && signedIn() ? `<button class="btn ghost" data-act="signout">Sign out</button>` : '';
+    return `<div class="brand">Character Forge<small>Multi-system RPG builder</small></div><div class="spacer"></div>${out}${so}`;
+  }
   if (app.view === 'campaign') {
     const camp = campUI.data && campUI.data.campaign;
     right = `<span class="sysbadge">${h(camp ? camp.name : 'Campaign')}</span>
-      <button class="btn ghost" data-act="roster">← Home</button>`;
+      <button class="btn ghost" data-act="home">← Home</button>`;
   } else if (app.view === 'roster') {
-    right = `<span class="sysbadge">${app.roster.length} character${app.roster.length === 1 ? '' : 's'}</span>`;
+    right = `<span class="sysbadge">${app.roster.length} character${app.roster.length === 1 ? '' : 's'}</span>
+      <button class="btn ghost" data-act="home">← Home</button>`;
   } else if (c) {
     const S = sys(c.systemId);
     right = `<span class="sysbadge">${h(SYSTEM_SHORT[c.systemId] || S.name)} · Level ${c.level}</span>
@@ -2668,6 +3257,46 @@ function pageBar(c, where) {
            <button class="btn" data-act="print">Print / PDF</button>`
           : `<button class="btn primary" data-act="sheet">Done — view character</button>`}
       ${guest || app.preview ? '' : `<button class="btn" data-act="export">Export</button>`}
+    </div>
+  </div>`;
+}
+
+/* ---------------- home landing ---------------- */
+function viewHome() {
+  const serverName = STORE.server && STORE.server.name;
+  const who = STORE.profile;
+  const myChars = app.roster.length;
+  const myCamps = campaignList();
+  const dmCamps = myCamps.filter(c => c.yourRole === 'dm');
+  const playerCamps = myCamps.filter(c => c.yourRole === 'player');
+
+  const dmSub = dmCamps.length === 1
+    ? h(dmCamps[0].name) + (dmCamps[0].memberCount ? ' &middot; ' + dmCamps[0].memberCount + ' at the table' : '')
+    : dmCamps.length > 1 ? dmCamps.length + ' campaigns'
+    : isConnected() ? 'No campaign yet' : 'No campaign yet';
+
+  const playerSub = myChars
+    ? myChars + ' character' + (myChars === 1 ? '' : 's') + (playerCamps.length ? ' &middot; ' + playerCamps.map(c => h(c.name)).join(', ') : '')
+    : 'Create a character to get started';
+
+  return `<div class="home">
+    <div class="hero">
+      <h1>${h(serverName || 'Character Forge')}</h1>
+      <p>${who ? 'Welcome back, <b>' + h(who.name) + '</b>. Who are you tonight?' : 'Welcome to the table.'}</p>
+    </div>
+    <div class="homewrap">
+      <div class="home-roles">
+        <button class="home-role-card" data-act="homeplayer">
+          <span class="home-role-label">Player</span>
+          <span class="home-role-sub">${playerSub}</span>
+          <span class="home-role-cta">Open your character</span>
+        </button>
+        <button class="home-role-card" data-act="homedm">
+          <span class="home-role-label">Dungeon Master</span>
+          <span class="home-role-sub">${dmSub}</span>
+          <span class="home-role-cta">See the party</span>
+        </button>
+      </div>
     </div>
   </div>`;
 }
@@ -2822,7 +3451,7 @@ function rail(c) {
     <div class="v">${s[a]}</div><div class="sub">${signed(mod(s[a]))}</div></div>`).join('');
 
   let core = '';
-  if (c.systemId === '5e') {
+  if (c.systemId === '5e' || c.systemId === '5.5e') {
     core = kv([['Hit Points', d.hp], ['Hit Dice', d.hitDice], ['Armor Class', d.ac], ['Initiative', signed(d.initiative)],
     ['Speed', d.speed + ' ft.'], ['Prof. Bonus', signed(d.profBonus)], ['Passive Perception', d.passivePerception]]);
     if (d.spell) core += kv([['Spell Save DC', d.spell.dc], ['Spell Attack', signed(d.spell.attack)]]);
@@ -3280,7 +3909,7 @@ function skillsSimple(c, d) {
   const allowed = allowedSkillIds(c);
   const chosen = (c.skills || []).filter(s => !b.granted.includes(s));
   const cls = byId(S.classes, c.classId);
-  const expWant = (c.systemId === '5e' && cls && cls.expertise && c.level >= cls.expertise.level)
+  const expWant = ((c.systemId === '5e' || c.systemId === '5.5e') && cls && cls.expertise && c.level >= cls.expertise.level)
     ? cls.expertise.count + (c.level >= 6 ? 2 : 0) : 0;
 
   const rows = S.skills.map(sk => {
@@ -3373,6 +4002,14 @@ function stepAdvance(c) {
       <div class="grid3">${[0, 1].map(i => abilSelect(c, 'levelAsi.' + l + '.' + i, asArray(c.levelAsi[l])[i], [], 'Increase ' + (i + 1))).join('')}
         <div class="field"><label>Feat taken instead</label><input data-field="choices.feat${l}" value="${h((c.choices || {})['feat' + l] || '')}" placeholder="e.g. Sharpshooter"></div></div>
     </div>`).join('') : '<p class="note">No ability score improvements yet — your first is at level ' + cls.asiLevels[0] + '.</p>';
+  } else if (c.systemId === '5.5e' && cls) {
+    const levels = cls.asiLevels.filter(l => l <= c.level);
+    asiUI = levels.length ? levels.map(l => `<div class="panel" style="background:var(--bg2)">
+      <h3>Level ${l} — Ability Score Improvement</h3>
+      <p class="note">+2 to one ability, or +1 to two. Leave blank if you took a feat instead.</p>
+      <div class="grid3">${[0, 1].map(i => abilSelect(c, 'levelAsi.' + l + '.' + i, asArray(c.levelAsi[l])[i], [], 'Increase ' + (i + 1))).join('')}
+        <div class="field"><label>Feat taken instead</label><input data-field="choices.feat${l}" value="${h((c.choices || {})['feat' + l] || '')}" placeholder="e.g. Sharpshooter"></div></div>
+    </div>`).join('') : '<p class="note">No ability score improvements yet — your first is at level ' + cls.asiLevels[0] + '.</p>';
   } else if (c.systemId === 'pf1') {
     const levels = [4, 8, 12, 16, 20].filter(l => l <= c.level);
     asiUI = levels.length ? levels.map(l => `<div class="panel" style="background:var(--bg2)">
@@ -3419,7 +4056,7 @@ function stepAdvance(c) {
     </div>
     ${c.systemId === '4e' && d.powersKnown ? `<div class="panel"><h2>Powers known</h2>${kv(Object.keys(d.powersKnown).map(k => [k, d.powersKnown[k]]))}</div>` : ''}
     ${c.systemId === 'pf2' && d.spell ? `<div class="panel"><h2>Spellcasting</h2>${kv([['Tradition', d.spell.tradition], ['Type', d.spell.kind], ['Proficiency', d.spell.rank], ['Highest rank', d.spell.maxRank], ['Slots', d.spell.slotsPerRank], ['Cantrips', d.spell.cantrips]])}</div>` : ''}
-    ${(c.systemId === '5e' || c.systemId === 'pf1') && d.spell ? `<div class="panel"><h2>Spellcasting</h2>${spellPanel(c, d)}</div>` : ''}
+    ${(c.systemId === '5e' || c.systemId === '5.5e' || c.systemId === 'pf1') && d.spell ? `<div class="panel"><h2>Spellcasting</h2>${spellPanel(c, d)}</div>` : ''}
     <div class="panel"><h2>Feat and option notes</h2>
       <p class="note">Type whatever you picked; there is no validation here, so homebrew and third-party options are fine.</p>
       <textarea data-field="notes" placeholder="Feats, invocations, rage powers, discoveries, metamagic, item choices...">${h(c.notes)}</textarea>
@@ -3429,7 +4066,7 @@ function stepAdvance(c) {
 
 function spellPanel(c, d) {
   if (!d.spell) return '';
-  if (c.systemId === '5e') {
+  if (c.systemId === '5e' || c.systemId === '5.5e') {
     const rows = [['Ability', d.spell.ability], ['Save DC', d.spell.dc], ['Attack bonus', signed(d.spell.attack)]];
     if (d.spell.cantrips) rows.push(['Cantrips known', d.spell.cantrips]);
     if (d.spell.prepared) rows.push(['Spells prepared', d.spell.prepared]);
@@ -3451,7 +4088,7 @@ function stepGear(c) {
   const d = derive(c);
   const armors = S.armorList || [];
   let shieldUI = '';
-  if (c.systemId === '5e') {
+  if (c.systemId === '5e' || c.systemId === '5.5e') {
     shieldUI = `<label class="chk"><input type="checkbox" data-act="toggleshield" ${c.shield ? 'checked' : ''}> Carrying a shield (+2 AC)</label>`;
   } else if (c.systemId === '4e') {
     shieldUI = `<div class="field"><label>Shield</label><select data-field="shield4e">
@@ -3619,12 +4256,28 @@ document.addEventListener('click', function (ev) {
         render();
       } return;
     }
+    case 'home': {
+      app.currentId = null;
+      app.guest = null;
+      app.preview = null;
+      pruneBlank();
+      app.view = 'home'; render(); return;
+    }
     case 'roster': {
       // drop a character the user created but never touched
       app.currentId = null;
       app.guest = null;
       app.preview = null;
       pruneBlank();
+      app.view = 'roster'; render(); return;
+    }
+    case 'homeplayer': {
+      app.view = 'roster'; render(); return;
+    }
+    case 'homedm': {
+      const dmCamps = campaignList().filter(camp => camp.yourRole === 'dm');
+      if (dmCamps.length === 1) { openCampaign(dmCamps[0].id); return; }
+      // no campaign yet, or multiple: go to roster where the campaign panel is visible
       app.view = 'roster'; render(); return;
     }
     case 'sheet': app.view = 'sheet'; render(); return;
@@ -3638,11 +4291,7 @@ document.addEventListener('click', function (ev) {
     case 'setsys': {
       const sid = el.dataset.sys;
       const untouched = !c.lineageId && !c.classId && !c.backgroundId && !(c.spells || []).length;
-      if (sid === c.systemId) {
-        // already on this system: on a new character, treat the click as "yes, continue"
-        if (untouched && app.step === 0) { app.step = 1; render(); }
-        return;
-      }
+      if (sid === c.systemId) return;
       // nothing to lose on an untouched character, so don't nag
       if (!untouched && !confirm('Switch to ' + sys(sid).name + '? Race, class, background, skills, and ability assignments will be cleared.')) return;
       const keep = { id: c.id, name: c.name, player: c.player, level: 1, notes: c.notes, gear: c.gear, gold: c.gold, personality: c.personality, appearance: c.appearance, created: c.created };
@@ -3652,8 +4301,7 @@ document.addEventListener('click', function (ev) {
       const i = app.roster.findIndex(x => x.id === c.id);
       app.roster[i] = swapped;
       resetAllPanels();
-      if (untouched && app.step === 0) app.step = 1;      // keep the wizard moving
-      else app.flash = 'Switched to ' + sys(sid).name + '.';
+      if (!untouched) app.flash = 'Switched to ' + sys(sid).name + '.';
       persist(); render(); return;
     }
     case 'pick': {
@@ -3913,7 +4561,7 @@ window.addEventListener('DOMContentLoaded', function () {
 
 /* ===== 80-spells-5e.js ===== */
 /* ============================================================
-   D&D 5e spell catalogue — SRD 5.1
+   D&D 5e spell catalogue — SRD 5.1 + SRD 5.2.1 additions
    ------------------------------------------------------------
    System Reference Document 5.1 Copyright 2016, Wizards of the
    Coast, Inc.; Authors Mike Mearls, Jeremy Crawford, Chris Perkins,
@@ -3922,10 +4570,17 @@ window.addEventListener('DOMContentLoaded', function () {
    original material by E. Gary Gygax and Dave Arneson.
    Available under the Open Gaming License / CC-BY-4.0.
 
+   System Reference Document 5.2.1 © 2025 Wizards of the Coast.
+   Available under Creative Commons Attribution 4.0 International (CC-BY-4.0).
+
    Rows are packed as arrays to keep this file small:
    [name, level, schoolIndex, castingTime, range, duration,
     components, material, concentration, ritual, [classIdx],
     description, higherLevel, damageType, saveType]
+
+   School indices: 0 Abjuration, 1 Conjuration, 2 Divination,
+   3 Enchantment, 4 Evocation, 5 Illusion, 6 Necromancy, 7 Transmutation.
+   Class indices match SPELL_CLASSES_5E order.
    ============================================================ */
 
 const SPELL_SCHOOLS_5E = ["Abjuration", "Conjuration", "Divination", "Enchantment", "Evocation", "Illusion", "Necromancy", "Transmutation"];
@@ -4249,6 +4904,27 @@ const SPELLDATA_5E = [
 ["True Polymorph",9,7,"1 action","30 feet","Up to 1 hour","VSM","A drop of mercury, a dollop of gum arabic, and a wisp of smoke.",1,0,[0, 6, 7],"Choose one creature or nonmagical object that you can see within range. You transform the creature into a different creature, the creature into an object, or the object into a creature (the object must be neither worn nor carried by another creature). The transformation lasts for the duration, or until the target drops to 0 hit points or dies. If you concentrate on this spell for the full duration, the transformation becomes permanent.\n\nShapechangers aren't affected by this spell. An unwilling creature can make a wisdom saving throw, and if it succeeds, it isn't affected by this spell.\n\n***Creature into Creature.*** If you turn a creature into another kind of creature, the new form can be any kind you choose whose challenge rating is equal to or less than the target's (or its level, if the target doesn't have a challenge rating). The target's game statistics, including mental ability scores, are replaced by the statistics of the new form. It retains its alignment and personality.\n\nThe target assumes the hit points of its new form, and when it reverts to its normal form, the creature returns to the number of hit points it had before it transformed. If it reverts as a result of dropping to 0 hit points, any excess damage carries over to its normal form. As long as the excess damage doesn't reduce the creature's normal form to 0 hit points, it isn't knocked unconscious.\n\nThe creature is limited in the actions it can perform by the nature of its new form, and it can't speak, cast spells, or take any other action that requires hands or speech unless its new form is capable of such actions.\n\nThe target's gear melds into the new form. The creature can't activate, use, wield, or otherwise benefit from any of its equipment.\n\n***Object into Creature.*** You can turn an object into any kind of creature, as long as the creature's size is no larger than the object's size and the creature's challenge rating is 9 or lower. The creature is friendly to you and your companions. It acts on each of your turns. You decide what action it takes and how it moves. The GM has the creature's statistics and resolves all of its actions and movement.\n\nIf the spell becomes permanent, you no longer control the creature. It might remain friendly to you, depending on how you have treated it.\n\n***Creature into Object.*** If you turn a creature into an object, it transforms along with whatever it is wearing and carrying into that form. The creature's statistics become those of the object, and the creature has no memory of time spent in this form, after the spell ends and it returns to its normal form.","","",""],
 ["True Resurrection",9,6,"1 hour","Touch","Instantaneous","VSM","A sprinkle of holy water and diamonds worth at least 25,000gp, which the spell consumes.",0,0,[1, 2],"You touch a creature that has been dead for no longer than 200 years and that died for any reason except old age. If the creature's soul is free and willing, the creature is restored to life with all its hit points.\n\nThis spell closes all wounds, neutralizes any poison, cures all diseases, and lifts any curses affecting the creature when it died. The spell replaces damaged or missing organs and limbs.\n\nThe spell can even provide a new body if the original no longer exists, in which case you must speak the creature's name. The creature then appears in an unoccupied space you choose within 10 feet of you.","","",""],
 ["Weird",9,5,"1 action","120 feet","Up to 1 minute","VS","",1,0,[7],"Drawing on the deepest fears of a group of creatures, you create illusory creatures in their minds, visible only to them. Each creature in a 30-foot-radius sphere centered on a point of your choice within range must make a wisdom saving throw. On a failed save, a creature becomes frightened for the duration. The illusion calls on the creature's deepest fears, manifesting its worst nightmares as an implacable threat. At the start of each of the frightened creature's turns, it must succeed on a wisdom saving throw or take 4d10 psychic damage. On a successful save, the spell ends for that creature.","","","WIS"],
+/* ---------- SRD 5.2.1 additions (CC-BY-4.0) ---------- */
+["Aura of Life",4,0,"1 action","Self (30-ft radius)","Up to 10 minutes","VS","",1,0,[1],"Life-preserving energy radiates from you in a 30-foot radius aura. Until the spell ends, the aura moves with you, centered on you. Each nonhostile creature in the aura (including you) has resistance to necrotic damage, and its hit point maximum can't be reduced. In addition, a nonhostile, living creature in the aura regains 1 hit point when it starts its turn there with 0 hit points.","","",""],
+["Charm Monster",4,3,"1 action","30 feet","1 hour","VS","",0,0,[0, 2, 5, 6, 7],"You attempt to charm a creature you can see within range. It must make a Wisdom saving throw, and it does so with advantage if you or your companions are fighting it. If it fails the saving throw, it is charmed by you until the spell ends or until you or your companions do anything harmful to it. The charmed creature regards you as a friendly acquaintance. When the spell ends, the creature knows it was charmed by you.","When you cast this spell using a spell slot of 5th level or higher, you can target one additional creature for each slot level above 4th. The creatures must be within 30 feet of each other when you target them.","","WIS"],
+["Chromatic Orb",1,4,"1 action","90 feet","Instantaneous","VSM","A diamond worth at least 50gp.",0,0,[5, 7],"You hurl a 4-inch-diameter sphere of energy at a creature that you can see within range. You choose acid, cold, fire, lightning, poison, or thunder for the type of sphere you create, and then make a ranged spell attack against the target. If the attack hits, the creature takes 3d8 damage of the type you chose.","When you cast this spell using a spell slot of 2nd level or higher, the damage increases by 1d8 for each slot level above 1st.","",""],
+["Dissonant Whispers",1,3,"1 action","60 feet","Instantaneous","V","",0,0,[0],"You whisper a discordant melody that only one creature of your choice within range can hear, wracking it with terrible pain. The target must make a Wisdom saving throw. On a failed save, it takes 3d6 psychic damage and must immediately use its reaction, if available, to move as far as its speed allows away from you. The creature doesn't move into obviously dangerous ground, such as a fire or a pit. On a successful save, the target takes half as much damage and doesn't have to move away. A deafened creature automatically succeeds on the saving throw.","When you cast this spell using a spell slot of 2nd level or higher, the damage increases by 1d6 for each slot level above 1st.","Psychic","WIS"],
+["Divine Smite",1,4,"1 bonus action","Self","Instantaneous","V","",0,0,[3],"The next time you hit a creature with a melee weapon attack before the end of the current turn, your weapon flares with divine power. The attack deals extra Radiant damage equal to 2d8, or 3d8 if the target is an Undead or a Fiend.","When you cast this spell using a spell slot of 2nd level or higher, the extra damage increases by 1d8 for each slot level above 1st.","Radiant",""],
+["Dragon's Breath",2,7,"1 bonus action","Touch","Up to 1 minute","VSM","A hot pepper.",1,0,[5, 7],"You touch one willing creature and imbue it with the power to spew magical energy from its mouth, provided it has one. Choose acid, cold, fire, lightning, or poison. Until the spell ends, the creature can use an action to exhale energy of the chosen type in a 15-foot cone. Each creature in that area must make a Dexterity saving throw, taking 3d6 damage of the chosen type on a failed save, or half as much damage on a successful one.","When you cast this spell using a spell slot of 3rd level or higher, the damage increases by 1d6 for each slot level above 2nd.","","DEX"],
+["Elementalism",0,7,"1 action","30 feet","Instantaneous","VS","",0,0,[2, 5, 7],"You exert control over the elements, creating one of the following effects within range:\n\n***Beckon Air.*** You create a breeze strong enough to cause a lit torch to flicker or extinguish a candle, or you cause loose paper to scatter.\n\n***Beckon Earth.*** You create a small amount of earth or stone (up to 1 cubic foot) in an unoccupied space on the ground, or you cause loose dirt or stone to shift for a moment.\n\n***Beckon Fire.*** You create a flickering flame in your palm or on a surface you touch. This flame can be as large as a torch and lasts for 1 minute. It doesn't burn you, and you can dismiss it early as a free action.\n\n***Beckon Water.*** You create up to 1 pint of fresh water in an open container, or you cause a ripple on the surface of nearby water.","","",""],
+["Ensnaring Strike",1,1,"1 bonus action","Self","Up to 1 minute","V","",1,0,[4],"The next time you hit a creature with a weapon attack before this spell ends, a writhing mass of thorny vines appears at the point of impact, and the target must succeed on a Strength saving throw or be restrained by the magical vines until the spell ends. A Large or larger creature has advantage on this saving throw. While restrained by this spell, the target takes 1d6 piercing damage at the start of each of its turns. A creature restrained by the vines or one that can touch the creature can use its action to make a Strength check against your spell save DC; on a success, the target is freed.","When you cast this spell using a spell slot of 2nd level or higher, the damage on each of the target's turns increases by 1d6 for each slot level above 1st.","Piercing","STR"],
+["Hex",1,3,"1 bonus action","90 feet","Up to 1 hour","VSM","The petrified eye of a newt.",1,0,[6],"You place a curse on a creature that you can see within range. Until the spell ends, you deal an extra 1d6 necrotic damage to the target whenever you hit it with an attack. Also, choose one ability when you cast the spell. The target has disadvantage on ability checks made with the chosen ability.\n\nIf the target drops to 0 hit points before this spell ends, you can use a bonus action on a subsequent turn of yours to curse a new creature.\n\nA remove curse cast on the target ends this spell early.","When you cast this spell using a spell slot of 3rd or 4th level, you can maintain your concentration on the spell for up to 8 hours. When you use a spell slot of 5th level or higher, you can maintain your concentration on the spell for up to 24 hours.","Necrotic",""],
+["Ice Knife",1,1,"1 action","60 feet","Instantaneous","SM","A drop of water or piece of ice.",0,0,[2, 5, 7],"You create a shard of ice and fling it at one creature within range. Make a ranged spell attack against the target. On a hit, the target takes 1d10 piercing damage. Hit or miss, the shard then explodes. The target and each creature within 5 feet of the point where the ice exploded must succeed on a Dexterity saving throw or take 2d6 cold damage.","When you cast this spell using a spell slot of 2nd level or higher, the cold damage increases by 1d6 for each slot level above 1st.","Cold","DEX"],
+["Mind Spike",2,2,"1 action","60 feet","Up to 1 hour","S","",1,0,[5, 6, 7],"You drive a spike of psionic energy into the mind of one creature you can see within range. The target must make a Wisdom saving throw, taking 3d8 psychic damage on a failed save, or half as much damage on a successful one. On a failed save, you also always know the target's location until the spell ends, but only while the two of you are on the same plane of existence. While you have this knowledge, the target can't become hidden from you, and if it's invisible, it gains no benefit from that condition against you.","When you cast this spell using a spell slot of 3rd level or higher, the damage increases by 1d8 for each slot level above 2nd.","Psychic","WIS"],
+["Phantasmal Force",2,5,"1 action","60 feet","Up to 1 minute","VSM","A bit of fleece.",1,0,[0, 5, 7],"You craft an illusion that takes root in the mind of a creature that you can see within range. The target must make an Intelligence saving throw. On a failed save, you create a phantasmal object, creature, or phenomenon no larger than a 10-foot cube that the target perceives for the spell's duration. The phantasm includes sound, temperature, and other stimuli, also evident only to the target.\n\nThe target can use its action to examine the phantasm with an Intelligence (Investigation) check against your spell save DC. If the check succeeds, the target realizes the phantasm is an illusion and the spell ends.\n\nWhile affected by the spell, the target treats the phantasm as if it were real. The target rationalizes any illogical outcomes from interacting with the phantasm. For example, a target attempting to walk across a phantasmal bridge that spans a chasm falls once it steps onto the bridge; if it survives, it still believes the bridge exists and invents another explanation for the fall.","","Psychic","INT"],
+["Power Word Heal",9,3,"1 action","Touch","Instantaneous","V","",0,0,[0, 1],"A wave of healing energy washes over the creature you touch. The target regains all its hit points. If the creature has the charmed, frightened, paralyzed, or stunned condition, the condition ends. If the creature has the prone condition, it can use its reaction to stand up. This spell has no effect on undead or constructs.","","",""],
+["Ray of Sickness",1,6,"1 action","60 feet","Instantaneous","VS","",0,0,[5, 7],"A ray of sickening greenish energy lashes out toward a creature within range. Make a ranged spell attack against the target. On a hit, the target takes 2d8 poison damage and must make a Constitution saving throw. On a failed save, it is also poisoned until the end of your next turn.","When you cast this spell using a spell slot of 2nd level or higher, the damage increases by 1d8 for each slot level above 1st.","Poison","CON"],
+["Searing Smite",1,4,"1 bonus action","Self","Up to 1 minute","V","",1,0,[3, 4],"The next time you hit a creature with a melee weapon attack during this spell's duration, your weapon flares with white-hot intensity, and the attack deals an extra 1d6 fire damage to the target and causes the target to ignite in flames. At the start of each of its turns until the spell ends, the target must make a Constitution saving throw. On a failed save, it takes 1d6 fire damage. On a successful save, the spell ends. If the target or a creature within 5 feet of it uses an action to put out the flames, or if some other effect douses the flames, the spell ends.","When you cast this spell using a spell slot of 2nd level or higher, the initial extra fire damage increases by 1d6 for each slot level above 1st.","Fire","CON"],
+["Sorcerous Burst",0,4,"1 action","120 feet","Instantaneous","VS","",0,0,[5],"You release a swirling surge of magic at a creature or object within range. Make a ranged spell attack against the target. On a hit, the target takes 1d8 damage. Choose the type of damage when you cast the spell: acid, cold, fire, lightning, poison, psychic, or thunder.\n\nIf you roll the highest number on a damage die, roll the die again and add the result to the damage total. This can cascade multiple times in succession.\n\nThis spell's damage increases by 1d8 when you reach 5th level (2d8), 11th level (3d8), and 17th level (4d8).","","",""],
+["Starry Wisp",0,4,"1 action","60 feet","Instantaneous","VS","",0,0,[0, 2],"You launch a mote of light at one creature or object within range. Make a ranged spell attack against the target. On a hit, the target takes 1d8 radiant damage and emits a faint light until the start of your next turn. The light is visible to creatures within 60 feet of the target.\n\nThis spell's damage increases by 1d8 when you reach 5th level (2d8), 11th level (3d8), and 17th level (4d8).","","Radiant",""],
+["Summon Dragon",5,1,"1 action","60 feet","Up to 1 hour","VSM","A gem worth at least 500gp.",1,0,[7],"You call forth a draconic spirit. It manifests in an unoccupied space that you can see within range. When you cast this spell, choose a type of dragon: chromatic, metallic, or gem. The spirit looks like a young dragon of the chosen type, which determines certain traits in its stat block. The dragon is friendly to you and your companions for the duration. In combat, the dragon shares your initiative count but takes its turn immediately after yours. It obeys your verbal commands (no action required by you). If you don't issue any, it takes the Dodge action and uses its movement to avoid danger.\n\nIf the dragon dies, the spell ends.","When you cast this spell using a spell slot of 6th level or higher, use the higher level wherever the spell's level appears in the stat block.","",""],
+["Tsunami",8,1,"1 minute","Sight","Up to 6 rounds","V","",1,0,[1, 2],"A wall of water springs into existence at a point you choose within range. You can make the wall up to 300 feet long, 300 feet high, and 50 feet thick. The wall lasts for the spell's duration.\n\nWhen the wall appears, each creature within its area must make a Strength saving throw. On a failed save, a creature takes 6d10 bludgeoning damage, or half as much on a successful save.\n\nAt the start of each of your turns after the wall appears, the wall, along with any creatures in it, moves 50 feet away from you. Any Huge or smaller creature inside the wall or whose space the wall enters must make a Strength saving throw. On a failed save, the creature takes 5d10 bludgeoning damage. On a successful save, the creature takes half as much. A creature can take this damage only once per round. At the end of each turn, the wall's height is reduced by 50 feet and the damage dealt on subsequent rounds is reduced by 1d10. When the wall reaches 0 feet in height, the spell ends.","","Bludgeoning","STR"],
+["Vitriolic Sphere",4,4,"1 action","150 feet","Instantaneous","VS","",0,0,[5, 7],"You point at a location within range, and a ball of acid streaks there and explodes in a 20-foot-radius sphere. Each creature in that area must make a Dexterity saving throw. On a failed save, a creature takes 10d4 acid damage and another 5d4 acid damage at the end of its next turn. On a successful save, a creature takes half the initial damage and no damage at the end of its next turn.","When you cast this spell using a spell slot of 5th level or higher, the initial damage increases by 2d4 for each slot level above 4th.","Acid","DEX"],
 ["Wish",9,1,"1 action","Self","Instantaneous","V","",0,0,[5, 7],"Wish is the mightiest spell a mortal creature can cast. By simply speaking aloud, you can alter the very foundations of reality in accord with your desires.\n\nThe basic use of this spell is to duplicate any other spell of 8th level or lower. You don't need to meet any requirements in that spell, including costly components. The spell simply takes effect.\n\nAlternatively, you can create one of the following effects of your choice:\n\n- You create one object of up to 25,000 gp in value that isn't a magic item. The object can be no more than 300 feet in any dimension, and it appears in an unoccupied space you can see on the ground.\n\n- You allow up to twenty creatures that you can see to regain all hit points, and you end all effects on them described in the greater restoration spell.\n\n- You grant up to ten creatures that you can see resistance to a damage type you choose.\n\n- You grant up to ten creatures you can see immunity to a single spell or other magical effect for 8 hours. For instance, you could make yourself and all your companions immune to a lich's life drain attack.\n\n- You undo a single recent event by forcing a reroll of any roll made within the last round (including your last turn). Reality reshapes itself to accommodate the new result. For example, a wish spell could undo an opponent's successful save, a foe's critical hit, or a friend's failed save. You can force the reroll to be made with advantage or disadvantage, and you can choose whether to use the reroll or the original roll.\n\nYou might be able to achieve something beyond the scope of the above examples. State your wish to the GM as precisely as possible. The GM has great latitude in ruling what occurs in such an instance; the greater the wish, the greater the likelihood that something goes wrong. This spell might simply fail, the effect you desire might only be partly achieved, or you might suffer some unforeseen consequence as a result of how you worded the wish. For example, wishing that a villain were dead might propel you forward in time to a period when that villain is no longer alive, effectively removing you from the game. Similarly, wishing for a legendary magic item or artifact might instantly transport you to the presence of the item's current owner.\n\nThe stress of casting this spell to produce any effect other than duplicating another spell weakens you. After enduring that stress, each time you cast a spell until you finish a long rest, you take 1d10 necrotic damage per level of that spell. This damage can't be reduced or prevented in any way. In addition, your Strength drops to 3, if it isn't 3 or lower already, for 2d4 days. For each of those days that you spend resting and doing nothing more than light activity, your remaining recovery time decreases by 2 days. Finally, there is a 33 percent chance that you are unable to cast wish ever again if you suffer this stress.","","",""]
 ];
 
@@ -6213,7 +6889,7 @@ let _importedSpells = null;
 
 function loadImportedSpells() {
   if (_importedSpells) return _importedSpells;
-  _importedSpells = { '5e': [], '4e': [], pf1: [], pf2: [] };
+  _importedSpells = { '5e': [], '5.5e': [], '4e': [], pf1: [], pf2: [] };
   if (!storageOK) return _importedSpells;
   try {
     const raw = localStorage.getItem(SPELL_IMPORT_KEY);
@@ -6243,6 +6919,7 @@ function spellsFor(systemId) {
   let base = [];
   try {
     if (systemId === '5e' && typeof unpackSpells5e === 'function') base = unpackSpells5e();
+    else if (systemId === '5.5e' && typeof unpackSpells5e === 'function') base = unpackSpells5e().map(s => Object.assign({}, s, { uid: '5.5e:' + s.uid.split(':')[1], system: '5.5e', source: s.source }));
     else if (systemId === 'pf2' && typeof unpackSpellsPf2 === 'function') base = unpackSpellsPf2();
     else if (systemId === 'pf1' && typeof unpackSpellsPf1 === 'function') base = unpackSpellsPf1();
   } catch (e) { console.error('spell unpack failed for ' + systemId, e); }
@@ -6412,7 +7089,7 @@ function pf1PerDay(c) {
 /* ---------------- unified limit accessor ---------------- */
 function spellLimits(c, d) {
   if (!casterInfo(c)) return null;
-  if (c.systemId === '5e') return spellLimits5e(c, d || derive(c));
+  if (c.systemId === '5e' || c.systemId === '5.5e') return spellLimits5e(c, d || derive(c));
   if (c.systemId === 'pf2') return spellLimitsPf2(c);
   if (c.systemId === 'pf1') return pf1PerDay(c);
   return null;
@@ -6423,7 +7100,7 @@ function spellOnList(c, sp) {
   const S = sys(c.systemId);
   const info = casterInfo(c);
   if (!info) return false;
-  if (c.systemId === '5e') {
+  if (c.systemId === '5e' || c.systemId === '5.5e') {
     const want = (info.sub && info.sub.spellcasting) ? 'wizard' : info.cls.id;
     return (sp.classes || []).includes(want);
   }
@@ -6778,7 +7455,7 @@ function limitsPanel(c) {
   if (!lim) return '';
   const rows = [];
 
-  if (c.systemId === '5e') {
+  if (c.systemId === '5e' || c.systemId === '5.5e') {
     rows.push(['Spellcasting ability', d.spell ? d.spell.ability : '—']);
     rows.push(['Spell save DC', d.spell ? d.spell.dc : '—']);
     rows.push(['Spell attack', d.spell ? signed(d.spell.attack) : '—']);
@@ -6831,7 +7508,7 @@ function bookPanel(c) {
     (groups[key] = groups[key] || []).push(sp);
   });
   const order = Object.keys(groups).sort((a, b) => (a === 'focus' ? 99 : +a) - (b === 'focus' ? 99 : +b));
-  const showPrep = (c.systemId === '5e' && (spellLimits(c, null) || {}).mode === 'prepared')
+  const showPrep = ((c.systemId === '5e' || c.systemId === '5.5e') && (spellLimits(c, null) || {}).mode === 'prepared')
     || (c.systemId === 'pf2' && (spellLimits(c, null) || {}).mode === 'prepared')
     || c.systemId === 'pf1';
 
@@ -7370,6 +8047,10 @@ const RESTS = {
     { kind: 'short', label: 'Short rest', hint: 'an hour — restores short-rest features and pact slots' },
     { kind: 'long', label: 'Long rest', hint: 'eight hours — full hit points, all slots and features' }
   ],
+  '5.5e': [
+    { kind: 'short', label: 'Short rest', hint: 'an hour — restores short-rest features and pact slots' },
+    { kind: 'long', label: 'Long rest', hint: 'eight hours — full hit points, all slots and features' }
+  ],
   '4e': [
     { kind: 'short', label: 'Short rest', hint: '5 minutes — encounter powers and second wind' },
     { kind: 'extended', label: 'Extended rest', hint: '6 hours — daily powers, surges, full hit points' }
@@ -7523,7 +8204,7 @@ function spendSurge(c) {
 const sheetUI = { log: [], openSpell: null };
 
 /* What each system calls the sub-choices, for the labelled header */
-const SUBLINEAGE_LABEL = { '5e': 'Subrace', '4e': 'Variant', pf1: 'Variant', pf2: 'Heritage' };
+const SUBLINEAGE_LABEL = { '5e': 'Subrace', '5.5e': 'Subrace', '4e': 'Variant', pf1: 'Variant', pf2: 'Heritage' };
 const SUBCLASS_LABEL = { '5e': 'Subclass', '4e': 'Build', pf1: 'Archetype', pf2: 'Subclass' };
 
 function logPlay(msg) {
@@ -7703,7 +8384,7 @@ function vitalsBlock(c, d) {
   </div>`;
 }
 function vitalTiles(c, d) {
-  if (c.systemId === '5e') return [
+  if (c.systemId === '5e' || c.systemId === '5.5e') return [
     ['Armour class', d.ac, d.acNote], ['Initiative', signed(d.initiative), ''],
     ['Speed', d.speed + ' ft.', ''], ['Prof. bonus', signed(d.profBonus), ''],
     ['Passive perception', d.passivePerception, ''], ['Hit dice', d.hitDice, '']
@@ -7794,7 +8475,7 @@ function abilityBlock(c, d) {
 }
 function saveBlock(c, d) {
   if (!d.saves || !d.saves.length) return '';
-  return `<div class="cs-box"><h4>${c.systemId === '5e' ? 'Saving throws' : 'Saves'}</h4>
+  return `<div class="cs-box"><h4>${(c.systemId === '5e' || c.systemId === '5.5e') ? 'Saving throws' : 'Saves'}</h4>
     <table>${d.saves.map(sv => `<tr>
       <td>${sv.prof !== undefined ? `<span class="dot ${sv.prof ? 'on' : ''}"></span>` : ''}${h(sv.name)}</td>
       <td class="num">${signed(sv.value)}</td>
@@ -15128,7 +15809,7 @@ function adoptServerRoster() {
   app.roster = loadRoster();
   app.roster.forEach(migrateCharacter);
   app.currentId = null;
-  app.view = 'roster';
+  app.view = 'home';
   resetSignin();
   resetAllPanels();
   if (typeof storeWatch === 'function') storeWatch();
@@ -15733,7 +16414,7 @@ async function doDeleteCampaign() {
   try {
     await storeDeleteCampaign(camp.id);
     app.roster = loadRoster();
-    app.view = 'roster';
+    app.view = 'home';
     campUI.id = null; campUI.data = null;
   } catch (e) { campUI.error = 'Could not close it: ' + e.message; }
   render();
