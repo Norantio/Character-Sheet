@@ -8549,25 +8549,18 @@ function vitalsBlock(c, d) {
   const tiles = vitalTiles(c, d);
   return `<div class="cs-vitals">
     <div class="hpbox ${bad}">
-      <div class="hp-head">
-        <span class="k">Hit points</span>
-        <span class="hp-num"><b>${hp}</b> / ${max}${temp ? ' <i>+' + temp + ' temp</i>' : ''}</span>
-      </div>
-      <div class="hpbar"><i style="width:${pct}%"></i>${temp ? `<u style="width:${Math.min(100, Math.round(temp / max * 100))}%"></u>` : ''}</div>
-      ${hp === 0 ? '<div class="hp-warn">At 0 hit points.</div>' : d.bloodied && hp <= d.bloodied ? '<div class="hp-warn">Bloodied.</div>' : ''}
-      <div class="hp-ctl noprint">
-        <button class="btn sm" data-act="hp" data-delta="-5">−5</button>
-        <button class="btn sm" data-act="hp" data-delta="-1">−1</button>
-        <input type="number" id="hpAmt" placeholder="amount" min="0" style="width:74px">
-        <button class="btn sm danger" data-act="dmg">Damage</button>
-        <button class="btn sm" data-act="heal">Heal</button>
-        <button class="btn sm" data-act="hp" data-delta="1">+1</button>
-        <button class="btn sm" data-act="hp" data-delta="5">+5</button>
+      <div class="hp-main">
+        <div class="hp-head">
+          <span class="k">Hit points</span>
+          <span class="hp-num"><b>${hp}</b> / ${max}${temp ? ' <i>+' + temp + ' temp</i>' : ''}</span>
+        </div>
+        <div class="hpbar"><i style="width:${pct}%"></i>${temp ? `<u style="width:${Math.min(100, Math.round(temp / max * 100))}%"></u>` : ''}</div>
+        ${hp === 0 ? '<div class="hp-warn">At 0 hit points.</div>' : d.bloodied && hp <= d.bloodied ? '<div class="hp-warn">Bloodied.</div>' : ''}
       </div>
       <div class="hp-ctl noprint">
-        <label class="chk" style="margin:0">Temp HP
-          <input type="number" min="0" value="${temp}" data-act="temphp" style="width:64px"></label>
-        <button class="btn sm ghost" data-act="hpfull">Restore to full</button>
+        <button class="btn icobtn up" data-act="hp" data-delta="1" title="Heal 1" aria-label="Heal one hit point"></button>
+        <button class="btn icobtn down" data-act="hp" data-delta="-1" title="Damage 1" aria-label="Take one point of damage"></button>
+        <button class="btn icobtn reset" data-act="hpfull" title="Restore to full" aria-label="Restore to full hit points"></button>
       </div>
     </div>
     <div class="cs-tiles">${tiles.map(t => `<div class="tile">
