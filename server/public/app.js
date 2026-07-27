@@ -8107,7 +8107,7 @@ function resourcesFor(c, d) {
   /* --- casting resources --- */
   const lim = spellLimits(c, d);
   if (lim) {
-    if (c.systemId === '5e') {
+    if (c.systemId === '5e' || c.systemId === '5.5e') {
       if (lim.pact) push('Spell slots', { id: 'pact', name: 'Pact slots (level ' + lim.pact.level + ')', max: lim.pact.count, reset: 'short' });
       (lim.slots || []).forEach((n, i) => push('Spell slots', { id: 'slot' + (i + 1), name: ordinalLevel(i + 1) + ' level', max: n, reset: 'long' }));
     } else if (c.systemId === 'pf2') {
@@ -8912,20 +8912,26 @@ function spellPlayBlock(c, d) {
           ${lvl === 0 ? '<span class="note">at will</span>' : ''}
         </div>
         <table class="sp-play">
-            <colgroup><col><col style="width:132px"><col style="width:124px"><col style="width:96px"></colgroup>
+            <colgroup><col><col style="width:132px"><col style="width:100px"><col style="width:80px"><col style="width:96px"></colgroup>
             <thead><tr>
-              <th>Spell</th><th>Cast time</th><th>Range</th><th class="noprint" style="text-align:right">Use</th>
+              <th>Spell</th><th>Cast time</th><th>Range</th><th>Roll</th><th class="noprint" style="text-align:right">Use</th>
             </tr></thead>
-            <tbody>${groups[k].map(sp => spellPlayRow(c, sp)).join('')}</tbody>
+            <tbody>${groups[k].map(sp => spellPlayRow(c, sp, d)).join('')}</tbody>
           </table>
       </div>`;
   }).join('')}
   </div>`;
 }
-function spellPlayRow(c, sp) {
+function spellPlayRow(c, sp, d) {
   const cost = castCost(c, sp);
   const out = !!cost.none;
   const open = sheetUI.openSpell === sp.uid;
+  const spell = d && d.spell;
+  // show save type, spell attack bonus, or — depending on spell mechanics
+  const rollCol = sp.save ? `<span class="note">${h(sp.save)} sv</span>`
+    : (sp.damageType && spell) ? `<span class="note">${signed(spell.attack)}</span>`
+    : sp.damageType ? '<span class="note">atk</span>'
+    : '<span class="note">—</span>';
   return `<tr class="${out ? 'spent' : ''}">
     <td>
       <button class="btn sm ghost noprint" data-act="spinfo" data-uid="${h(sp.uid)}" style="padding:1px 5px">${open ? '▾' : '▸'}</button>
@@ -8937,11 +8943,12 @@ function spellPlayRow(c, sp) {
     </td>
     <td class="note">${h(sp.castingTime || '')}</td>
     <td class="note">${h(sp.range || '')}</td>
+    <td>${rollCol}</td>
     <td class="noprint" style="text-align:right;white-space:nowrap">
       ${out ? `<span class="note">no slot</span>`
       : `<button class="btn sm ${cost.free ? '' : 'primary'}" data-act="cast" data-uid="${h(sp.uid)}">Cast</button>`}
     </td>
-  </tr>${open ? `<tr><td colspan="4" class="spdetail">${spellDetail(c, sp)}</td></tr>` : ''}`;
+  </tr>${open ? `<tr><td colspan="5" class="spdetail">${spellDetail(c, sp)}</td></tr>` : ''}`;
 }
 function restForSpell(c, sp) {
   const lv = spellLevelFor(c, sp);

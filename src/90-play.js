@@ -119,7 +119,7 @@ function resourcesFor(c, d) {
   /* --- casting resources --- */
   const lim = spellLimits(c, d);
   if (lim) {
-    if (c.systemId === '5e') {
+    if (c.systemId === '5e' || c.systemId === '5.5e') {
       if (lim.pact) push('Spell slots', { id: 'pact', name: 'Pact slots (level ' + lim.pact.level + ')', max: lim.pact.count, reset: 'short' });
       (lim.slots || []).forEach((n, i) => push('Spell slots', { id: 'slot' + (i + 1), name: ordinalLevel(i + 1) + ' level', max: n, reset: 'long' }));
     } else if (c.systemId === 'pf2') {
