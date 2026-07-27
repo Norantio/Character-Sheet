@@ -4277,7 +4277,8 @@ document.addEventListener('click', function (ev) {
     case 'homedm': {
       const dmCamps = campaignList().filter(camp => camp.yourRole === 'dm');
       if (dmCamps.length === 1) { openCampaign(dmCamps[0].id); return; }
-      // no campaign yet, or multiple: go to roster where the campaign panel is visible
+      // no campaign yet: open the campaign creation form so the DM can start one
+      campUI.creating = true;
       app.view = 'roster'; render(); return;
     }
     case 'sheet': app.view = 'sheet'; render(); return;
@@ -16102,7 +16103,7 @@ function viewCampaign() {
   const mine = (loadRoster() || []).filter(c => c.campaignId === camp.id);
 
   return `<div class="pagebar noprint">
-      <button class="btn" data-act="roster">← Home</button>
+      <button class="btn" data-act="home">← Home</button>
       <div class="pagebar-title">
         <b>${h(camp.name)}</b>
         <span>${h(SYSTEM_SHORT[camp.systemId] || S.name)} · ${dm ? 'you are the DM' : 'DM ' + h(camp.dmName)}

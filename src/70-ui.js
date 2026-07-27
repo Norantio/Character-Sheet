@@ -1261,7 +1261,8 @@ document.addEventListener('click', function (ev) {
     case 'homedm': {
       const dmCamps = campaignList().filter(camp => camp.yourRole === 'dm');
       if (dmCamps.length === 1) { openCampaign(dmCamps[0].id); return; }
-      // no campaign yet, or multiple: go to roster where the campaign panel is visible
+      // no campaign yet: open the campaign creation form so the DM can start one
+      campUI.creating = true;
       app.view = 'roster'; render(); return;
     }
     case 'sheet': app.view = 'sheet'; render(); return;

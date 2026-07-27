@@ -165,7 +165,7 @@ function viewCampaign() {
   const mine = (loadRoster() || []).filter(c => c.campaignId === camp.id);
 
   return `<div class="pagebar noprint">
-      <button class="btn" data-act="roster">← Home</button>
+      <button class="btn" data-act="home">← Home</button>
       <div class="pagebar-title">
         <b>${h(camp.name)}</b>
         <span>${h(SYSTEM_SHORT[camp.systemId] || S.name)} · ${dm ? 'you are the DM' : 'DM ' + h(camp.dmName)}
