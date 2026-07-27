@@ -9016,8 +9016,9 @@ function languageBlock(c) {
   return `<div class="cs-box"><h4>Languages</h4><div class="prose">${h(c.languages.join(', '))}</div></div>`;
 }
 function noteBlock(c) {
-  if (!c.notes) return '';
-  return `<div class="cs-box"><h4>Feats &amp; options</h4><div class="prose">${h(c.notes)}</div></div>`;
+  return `<div class="cs-box"><h4>Feats &amp; options</h4>
+    <textarea data-field="notes" style="min-height:70px;width:100%" placeholder="Feats, invocations, powers, metamagic, item choices…">${h(c.notes || '')}</textarea>
+  </div>`;
 }
 function flavourBlock(c) {
   const p = c.personality || {}, a = c.appearance || {};
