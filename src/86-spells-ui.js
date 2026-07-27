@@ -156,14 +156,40 @@ function browsePanel(c, readOnly) {
         Only spells on my class list</label></div>
     </div>
     ${results.length === 0 ? `<p class="note" style="margin-top:12px">Nothing matches. ${spellUI.onlyList ? 'Try unticking “only my class list”.' : 'Try a different search.'}</p>` : ''}
-    <table class="sp-browse" style="margin-top:10px"><thead><tr>
-      <th>Spell</th><th>Lvl</th><th>${c.systemId === 'pf2' ? 'Traits' : 'School'}</th><th>Cast</th><th>Range</th><th></th>
-    </tr></thead><tbody>
-      ${shown.map(sp => spellRow(c, sp, false, false, readOnly)).join('')}
-    </tbody></table>
+    ${renderBrowseTable(c, shown, readOnly)}
     ${results.length > shown.length ? `<div style="margin-top:10px;text-align:center">
       <button class="btn" data-act="spmore">Show ${Math.min(60, results.length - shown.length)} more (${results.length - shown.length} hidden)</button></div>` : ''}
   </div>`;
+}
+
+function renderBrowseTable(c, spells, readOnly) {
+  if (!spells.length) return '';
+  const thead = `<thead><tr>
+      <th>Spell</th><th>Lvl</th><th>${c.systemId === 'pf2' ? 'Traits' : 'School'}</th><th>Cast</th><th>Range</th><th></th>
+    </tr></thead>`;
+  // Only split when showing all levels in systems that have cantrips at level 0
+  const splitable = (c.systemId === '5e' || c.systemId === '5.5e' || c.systemId === 'pf1') && spellUI.level === 'all';
+  if (!splitable) {
+    return `<table class="sp-browse" style="margin-top:10px">${thead}<tbody>
+      ${spells.map(sp => spellRow(c, sp, false, false, readOnly)).join('')}
+    </tbody></table>`;
+  }
+  const cantrips = spells.filter(sp => spellLevelFor(c, sp) === 0);
+  const leveled = spells.filter(sp => spellLevelFor(c, sp) !== 0);
+  let out = '';
+  if (cantrips.length) {
+    out += `<h3 style="margin-top:14px">Cantrips <span class="tag">${cantrips.length}</span></h3>
+      <table class="sp-browse">${thead}<tbody>
+        ${cantrips.map(sp => spellRow(c, sp, false, false, readOnly)).join('')}
+      </tbody></table>`;
+  }
+  if (leveled.length) {
+    out += `<h3 style="margin-top:14px">Spells <span class="tag">${leveled.length}</span></h3>
+      <table class="sp-browse">${thead}<tbody>
+        ${leveled.map(sp => spellRow(c, sp, false, false, readOnly)).join('')}
+      </tbody></table>`;
+  }
+  return out;
 }
 
 /* ---------------- one row ---------------- */
