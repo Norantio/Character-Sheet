@@ -10008,6 +10008,25 @@ function resourceBlock(c, d) {
     </div>`).join('') : '<p class="note">This character has no tracked daily resources.</p>'}
   </div>`;
 }
+/* compact slot pips used in the spell list and vital tiles */
+function resPips(c, r, extraClass) {
+  const u = used(c, r.id), left = r.max - u;
+  if (r.pool || r.max > 12) {
+    return `<span class="respool ${extraClass || ''}">
+      <b>${left}</b> / ${r.max}
+      <span class="resctl noprint">
+        <button class="btn sm" data-act="resspend" data-id="${h(r.id)}">−</button>
+        <button class="btn sm" data-act="resgain" data-id="${h(r.id)}">+</button>
+      </span></span>`;
+  }
+  const pips = [];
+  for (let i = 0; i < r.max; i++) {
+    pips.push(`<button class="pip ${i < left ? '' : 'off'}" data-act="pip" data-id="${h(r.id)}" data-n="${i}"
+      title="${i < left ? 'spend one' : 'restore one'}"></button>`);
+  }
+  return `<span class="pips ${extraClass || ''}">${pips.join('')}</span>`;
+}
+
 function resourceRow(c, r) {
   const u = used(c, r.id), left = r.max - u;
   const spent = left === 0;
@@ -10116,10 +10135,17 @@ function spellPlayBlock(c, d) {
     return `<div class="spgroup">
         <div class="spgroup-head">
           <b>${h(k === 'focus' ? 'Focus spells' : levelLabel(c, lvl))}</b>
+          ${track ? resPips(c, track, 'sp-pips tiny') : ''}
           ${track ? `<span class="spslots ${left === 0 ? 'out' : ''}">${left} of ${track.max} ${track.id === 'focus' ? 'focus points' : 'slots'} left</span>` : ''}
           ${lvl === 0 ? '<span class="note">at will</span>' : ''}
         </div>
-        <table>${groups[k].map(sp => spellPlayRow(c, sp)).join('')}</table>
+        <table class="sp-play">
+            <colgroup><col><col style="width:132px"><col style="width:124px"><col style="width:96px"></colgroup>
+            <thead><tr>
+              <th>Spell</th><th>Cast time</th><th>Range</th><th class="noprint" style="text-align:right">Use</th>
+            </tr></thead>
+            <tbody>${groups[k].map(sp => spellPlayRow(c, sp)).join('')}</tbody>
+          </table>
       </div>`;
   }).join('')}
   </div>`;
