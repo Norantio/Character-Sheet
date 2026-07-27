@@ -263,8 +263,7 @@ function viewSheetPanel(c) {
     : app.view === 'journal' ? journalBlock(c)
     : characterPage(c);
   const other = Object.keys(PANEL_PAGES).filter(k => k !== app.view);
-  return pageBar(c, 'sheet') +
-    `<div class="pagebar noprint">
+  return `<div class="pagebar noprint">
       <button class="btn" data-act="sheet">← Back to sheet</button>
       <div class="pagebar-title">
         <b>${h(c.name || 'Unnamed character')} — ${h(meta.title)}</b>
