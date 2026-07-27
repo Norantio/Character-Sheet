@@ -9748,10 +9748,6 @@ function viewSheet() {
       attackBlock(c, d),
       castingBlock(c, d),
       skillBlock(c, d),
-      proficiencyBlock(c, d),
-      featureBlock(c, d, cls),
-      traitBlock(c, S, lin, linSub),
-      backgroundBlock(c, S, bg),
       choiceBlock(c),
       reminderBlock(c, d),
       gearBlock(c, d),
@@ -9830,9 +9826,18 @@ function logHistory(c, text) {
 
 function characterPage(c) {
   const S = sys(c.systemId);
+  const d = derive(c);
+  const cls = byId(S.classes, c.classId);
+  const lin = byId(S.lineages, c.lineageId);
+  const linSub = lin ? byId(lin.subs || [], c.lineageSubId) : null;
+  const bg = byId(S.backgrounds, c.backgroundId);
   const history = (c.history || []).slice().sort((x, y) => (y.date || '').localeCompare(x.date || ''));
   const ro = typeof sheetReadOnly === 'function' && sheetReadOnly();
   if (ro) return `${flavourBlock(c) || '<div class="cs-box"><h4>Roleplay</h4><p class="note">Nothing recorded here.</p></div>'}
+    ${traitBlock(c, S, lin, linSub)}
+    ${backgroundBlock(c, S, bg)}
+    ${featureBlock(c, d, cls)}
+    ${proficiencyBlock(c, d)}
     ${characterRecord(c, S, history)}`;
   const a = c.appearance || {}, pr = c.personality || {};
   const line = (k, label, val) =>
@@ -9859,6 +9864,7 @@ function characterPage(c) {
     <div class="cs-box"><h4>Backstory</h4>
       ${area('personality.backstory', 'Backstory', pr.backstory, 120, 'Where you came from, what you want, who you owe…')}
     </div>
+    ${columnise([traitBlock(c, S, lin, linSub), backgroundBlock(c, S, bg), featureBlock(c, d, cls), proficiencyBlock(c, d)])}
     ${characterRecord(c, S, history)}`;
 }
 
