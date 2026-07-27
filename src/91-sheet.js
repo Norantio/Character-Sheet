@@ -1,0 +1,548 @@
+/* ============================================================
+   The character sheet — dark themed, live at the table
+   ============================================================ */
+
+const sheetUI = { log: [], openSpell: null };
+
+/* What each system calls the sub-choices, for the labelled header */
+const SUBLINEAGE_LABEL = { '5e': 'Subrace', '5.5e': 'Subrace', '4e': 'Variant', pf1: 'Variant', pf2: 'Heritage' };
+const SUBCLASS_LABEL = { '5e': 'Subclass', '4e': 'Build', pf1: 'Archetype', pf2: 'Subclass' };
+
+function logPlay(msg) {
+  sheetUI.log.unshift(msg);
+  sheetUI.log = sheetUI.log.slice(0, 6);
+}
+
+function viewSheet() {
+  const real = cur();
+  if (!real) { app.view = 'roster'; return viewRoster(); }
+  // Previewing runs the sheet through filterCharacter — the same function the
+  // server uses — so what you are shown cannot disagree with what it sends.
+  const c = app.preview ? filterCharacter(app.preview, real) : real;
+  const S = sys(c.systemId);
+  const d = derive(c);
+  playInit(c);
+
+  const lin = byId(S.lineages, c.lineageId);
+  const linSub = lin ? byId(lin.subs || [], c.lineageSubId) : null;
+  const cls = byId(S.classes, c.classId);
+  const sub = cls ? byId(cls.subclasses || [], c.subclassId) : null;
+  const bg = byId(S.backgrounds, c.backgroundId);
+
+  const missing = [];
+  if (!c.name) missing.push('a name');
+  if (!c.lineageId) missing.push('a ' + S.lineageLabel.toLowerCase());
+  if (!c.classId) missing.push('a ' + S.classLabel.toLowerCase());
+  const errs = validate(c).filter(i => i.level === 'error');
+
+  // Each part of the header gets a label, so it is obvious what is what.
+  const idFields = [
+    ['Level', c.level],
+    [S.lineageLabel, lin ? lin.name : null],
+    [SUBLINEAGE_LABEL[c.systemId] || 'Variant', linSub ? linSub.name : null],
+    [S.classLabel, cls ? cls.name : null],
+    [SUBCLASS_LABEL[c.systemId] || 'Subclass', sub ? sub.name : null],
+    [S.backgroundLabel.split(' / ')[0], bg && bg.id !== 'none' ? bg.name : null],
+    ['Alignment', c.alignment],
+    ['Deity', c.deity],
+    ['Player', c.player],
+    ['Campaign', c.campaignId ? (campaignName(c.campaignId) || 'a campaign') : null]
+  ].filter(([, v]) => v !== null && v !== undefined && v !== '');
+
+  return pageBar(c, 'sheet') +
+    previewNote() +
+    (app.flash ? `<div class="pagenote noprint"><div>${h(app.flash)}</div></div>` : '') +
+    // Reading somebody else's sheet: still say what is unfinished, since that
+    // is worth knowing, but offer no button — it is not yours to fix.
+    (missing.length ? `<div class="pagenote noprint">
+      <div><b>This character still needs ${h(missing.join(' and '))}.</b>
+        <span class="note">${readingSomeoneElse()
+        ? 'Their player has not finished building it.'
+        : 'The wizard walks you through what is left.'}</span></div>
+      ${sheetReadOnly() ? '' : '<button class="btn primary" data-act="modify">Continue building →</button>'}
+    </div>` : errs.length ? `<div class="pagenote noprint">
+      <div><b>${errs.length} thing${errs.length > 1 ? 's' : ''} to tidy up:</b>
+        <span class="note">${h(errs.slice(0, 2).map(i => i.text).join(' '))}${errs.length > 2 ? ' …' : ''}</span></div>
+      ${sheetReadOnly() ? '' : '<button class="btn" data-act="modify">Fix in the wizard →</button>'}
+    </div>` : '') +
+    `<div class="csheet">
+      <div class="cs-title">
+        <div>
+          <h1>${h(c.name || 'Unnamed character')}</h1>
+          <div class="cs-id">${idFields.map(([k, v]) => `<div>
+            <span class="k">${h(k)}</span><span class="v">${h(v)}</span></div>`).join('')}</div>
+        </div>
+        <div class="cs-sys">${h(S.name)}<br><span>${h(S.tag)}</span></div>
+      </div>
+
+      ${abilityBlock(c, d)}
+      ${vitalsBlock(c, d)}
+      ${sheetUI.log.length ? `<div class="cs-log noprint">${sheetUI.log.map((m, i) => `<div class="${i ? 'old' : ''}">${h(m)}</div>`).join('')}
+        <button class="btn sm ghost" data-act="clearlog">clear</button></div>` : ''}
+      ${spellPlayBlock(c, d)}
+      ${resourceBlock(c, d)}
+
+      ${columnise([
+      saveBlock(c, d),
+      attackBlock(c, d),
+      castingBlock(c, d),
+      skillBlock(c, d),
+      proficiencyBlock(c, d),
+      featureBlock(c, d, cls),
+      traitBlock(c, S, lin, linSub),
+      backgroundBlock(c, S, bg),
+      choiceBlock(c),
+      reminderBlock(c, d),
+      inventoryBlock(c, d),
+      gearBlock(c, d),
+      campaignBlock(c),
+      languageBlock(c),
+      noteBlock(c),
+      privacyBlock(real)
+    ])}
+
+      ${journalBlock(c)}
+      ${flavourBlock(c)}
+      ${c.printSpellText ? spellTextSheet(c) : ''}
+    </div>`;
+}
+
+/* ------------------------------------------------------------
+   Spread the reference boxes over three columns of roughly equal
+   height, instead of letting a plain grid leave ragged gaps.
+   ------------------------------------------------------------ */
+function columnise(blocks, columns) {
+  const items = blocks.filter(b => b && b.trim())
+    .map((html, i) => ({ html: html, weight: blockWeight(html), order: i }));
+  const total = items.reduce((t, x) => t + x.weight, 0);
+  const tallest = items.reduce((m, x) => Math.max(m, x.weight), 0);
+  // Use fewer columns when there is little to show, or when one box is so tall
+  // that extra columns would just sit half empty beside it.
+  const n = columns || clamp(Math.min(
+    Math.ceil(total / 26),
+    Math.max(1, Math.round(total / Math.max(tallest, 1)))
+  ), 1, Math.min(3, items.length));
+  // Tallest first (longest-processing-time first): a big box placed last would
+  // otherwise blow out whichever column it landed in.
+  items.sort((a, b) => (b.weight - a.weight) || (a.order - b.order));
+  const cols = Array.from({ length: n }, () => ({ parts: [], weight: 0 }));
+  items.forEach(item => {
+    let target = cols[0];
+    cols.forEach(col => { if (col.weight < target.weight) target = col; });
+    target.parts.push(item);
+    target.weight += item.weight;
+  });
+  // inside each column, restore the original reading order
+  const filled = cols.filter(col => col.parts.length);
+  if (!filled.length) return '';
+  return `<div class="cs-cols cols-${filled.length}">${filled.map(col =>
+    `<div class="cs-col">${col.parts.sort((a, b) => a.order - b.order).map(p => p.html).join('')}</div>`
+  ).join('')}</div>`;
+}
+/* Rough height of a block in "lines". Blocks that lay themselves out in two
+   internal columns declare their own weight with data-w. */
+function blockWeight(html) {
+  const declared = html.match(/data-w="(\d+)"/);
+  if (declared) return Number(declared[1]);
+  const rows = (html.match(/<tr/g) || []).length;
+  const items = (html.match(/<li/g) || []).length;
+  const text = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().length;
+  return 4 + rows + items * 1.3 + Math.ceil(text / 110);
+}
+
+/* ---------------- vitals ---------------- */
+function vitalsBlock(c, d) {
+  const hp = curHp(c), max = maxHp(c), temp = c.play.temp || 0;
+  const pct = max ? Math.round(hp / max * 100) : 0;
+  const bad = hp === 0 ? 'dead' : pct <= 25 ? 'low' : pct <= 50 ? 'half' : '';
+  const tiles = vitalTiles(c, d);
+  return `<div class="cs-vitals">
+    <div class="hpbox ${bad}">
+      <div class="hp-head">
+        <span class="k">Hit points</span>
+        <span class="hp-num"><b>${hp}</b> / ${max}${temp ? ' <i>+' + temp + ' temp</i>' : ''}</span>
+      </div>
+      <div class="hpbar"><i style="width:${pct}%"></i>${temp ? `<u style="width:${Math.min(100, Math.round(temp / max * 100))}%"></u>` : ''}</div>
+      ${hp === 0 ? '<div class="hp-warn">At 0 hit points.</div>' : d.bloodied && hp <= d.bloodied ? '<div class="hp-warn">Bloodied.</div>' : ''}
+      <div class="hp-ctl noprint">
+        <button class="btn sm" data-act="hp" data-delta="-5">−5</button>
+        <button class="btn sm" data-act="hp" data-delta="-1">−1</button>
+        <input type="number" id="hpAmt" placeholder="amount" min="0" style="width:74px">
+        <button class="btn sm danger" data-act="dmg">Damage</button>
+        <button class="btn sm" data-act="heal">Heal</button>
+        <button class="btn sm" data-act="hp" data-delta="1">+1</button>
+        <button class="btn sm" data-act="hp" data-delta="5">+5</button>
+      </div>
+      <div class="hp-ctl noprint">
+        <label class="chk" style="margin:0">Temp HP
+          <input type="number" min="0" value="${temp}" data-act="temphp" style="width:64px"></label>
+        <button class="btn sm ghost" data-act="hpfull">Restore to full</button>
+      </div>
+    </div>
+    <div class="cs-tiles">${tiles.map(t => `<div class="tile">
+      <div class="k">${h(t[0])}</div><div class="v">${h(t[1])}</div>${t[2] ? `<div class="s">${h(t[2])}</div>` : ''}
+    </div>`).join('')}</div>
+  </div>`;
+}
+function vitalTiles(c, d) {
+  if (c.systemId === '5e' || c.systemId === '5.5e') return [
+    ['Armour class', d.ac, d.acNote], ['Initiative', signed(d.initiative), ''],
+    ['Speed', d.speed + ' ft.', ''], ['Prof. bonus', signed(d.profBonus), ''],
+    ['Passive perception', d.passivePerception, ''], ['Hit dice', d.hitDice, '']
+  ];
+  if (c.systemId === '4e') return [
+    ['AC', d.ac, d.acNote.split('(')[0]], ['Fortitude', d.fort, ''], ['Reflex', d.ref, ''], ['Will', d.will, ''],
+    ['Initiative', signed(d.initiative), ''], ['Speed', d.speed, ''],
+    ['Bloodied', d.bloodied, ''], ['Surge value', d.surgeValue, ''], ['Tier', d.tier, '']
+  ];
+  if (c.systemId === 'pf1') return [
+    ['AC', d.ac, 'touch ' + d.touchAC + ' · flat-footed ' + d.flatFooted],
+    ['Fort / Ref / Will', signed(d.fort) + ' / ' + signed(d.ref) + ' / ' + signed(d.will), ''],
+    ['Base attack', signed(d.bab), d.fullAttack || ''],
+    ['CMB / CMD', signed(d.cmb) + ' / ' + d.cmd, ''],
+    ['Initiative', signed(d.initiative), ''], ['Speed', d.speed, '']
+  ];
+  return [
+    ['AC', d.ac, d.shieldAc ? 'shield raised ' + d.shieldAc : ''],
+    ['Class DC', d.classDC, d.keyAbility],
+    ['Perception', signed(d.perception), PROF_LABEL[d.perceptionRank]],
+    ['Fort / Ref / Will', signed(d.fort) + ' / ' + signed(d.ref) + ' / ' + signed(d.will), ''],
+    ['Speed', d.speed, ''], ['Bulk limit', d.bulkLimit, '']
+  ];
+}
+
+/* ---------------- resources and rests ---------------- */
+function resourceBlock(c, d) {
+  const res = resourcesFor(c, d);
+  const rests = RESTS[c.systemId] || [];
+  if (!res.length && !rests.length) return '';
+  const groups = {};
+  res.forEach(r => (groups[r.group] = groups[r.group] || []).push(r));
+
+  return `<div class="cs-res">
+    <div class="cs-res-head">
+      <h3>Resources</h3>
+      <div class="restbtns noprint">
+        ${rests.map(r => `<button class="btn sm" data-act="rest" data-kind="${r.kind}">${h(r.label)}</button>`).join('')}
+        ${resourceById(c, 'hitdice', d) ? `<button class="btn sm" data-act="hitdie">Spend a hit die</button>` : ''}
+        ${resourceById(c, 'surges', d) ? `<button class="btn sm" data-act="surge">Spend a healing surge</button>` : ''}
+      </div>
+    </div>
+    ${rests.length ? `<div class="note resthint noprint">
+      ${rests.map(r => '<b>' + h(r.label) + '</b> — ' + h(r.hint)).join(' · ')}
+      ${res.some(r => r.max <= 12 && !r.pool) ? ' · Tap a filled box to spend one, an empty box to give one back.' : ''}
+    </div>` : ''}
+    ${res.length ? Object.keys(groups).map(g => `<div class="resgroup">
+      <div class="resgroup-lab">${h(g)}</div>
+      <div class="reslist">${groups[g].map(r => resourceRow(c, r)).join('')}</div>
+    </div>`).join('') : '<p class="note">This character has no tracked daily resources.</p>'}
+  </div>`;
+}
+function resourceRow(c, r) {
+  const u = used(c, r.id), left = r.max - u;
+  const spent = left === 0;
+  if (r.pool || r.max > 12) {
+    return `<div class="resrow ${spent ? 'spent' : ''}">
+      <span class="resname">${h(r.name)}</span>
+      <span class="resnum"><b>${left}</b> / ${r.max}</span>
+      <span class="resctl noprint">
+        <button class="btn sm" data-act="resspend" data-id="${h(r.id)}">−</button>
+        <button class="btn sm" data-act="resgain" data-id="${h(r.id)}">+</button>
+      </span>
+      <span class="resreset">${spent ? 'empty until a ' + restWord(r.reset) : 'back on a ' + restWord(r.reset)}</span>
+    </div>`;
+  }
+  const pips = [];
+  for (let i = 0; i < r.max; i++) {
+    pips.push(`<button class="pip ${i < left ? '' : 'off'}" data-act="pip" data-id="${h(r.id)}" data-n="${i}"
+      title="${i < left ? 'spend one' : 'restore one'}"></button>`);
+  }
+  return `<div class="resrow ${spent ? 'spent' : ''}">
+    <span class="resname">${h(r.name)}</span>
+    <span class="pips">${pips.join('')}</span>
+    <span class="resnum">${left} / ${r.max}</span>
+    <span class="resreset">${spent ? 'empty until a ' + restWord(r.reset) : 'back on a ' + restWord(r.reset)}</span>
+    ${r.note ? `<span class="resnote">${h(r.note)}</span>` : ''}
+  </div>`;
+}
+
+/* ---------------- abilities, saves, skills ---------------- */
+function abilityBlock(c, d) {
+  const s = c.finalScores;
+  return `<div class="cs-box"><h4>Ability scores</h4>
+    <div class="cs-abils">${ABIL6.map(a => `<div class="cs-ab">
+      <div class="k">${h(ABIL_NAME[a])}</div><div class="v">${s[a]}</div><div class="m">${signed(mod(s[a]))}</div>
+    </div>`).join('')}</div></div>`;
+}
+function saveBlock(c, d) {
+  if (!d.saves || !d.saves.length) return '';
+  return `<div class="cs-box"><h4>${(c.systemId === '5e' || c.systemId === '5.5e') ? 'Saving throws' : 'Saves'}</h4>
+    <table>${d.saves.map(sv => `<tr>
+      <td>${sv.prof !== undefined ? `<span class="dot ${sv.prof ? 'on' : ''}"></span>` : ''}${h(sv.name)}</td>
+      <td class="num">${signed(sv.value)}</td>
+      <td class="note">${h(sv.rank || '')}</td></tr>`).join('')}</table></div>`;
+}
+function skillBlock(c, d) {
+  const row = sk => `<tr class="${sk.prof ? 'on' : ''}">
+      <td>${c.systemId === 'pf2'
+      ? `<span class="tag">${PROF_LABEL[sk.rank]}</span>`
+      : `<span class="dot ${sk.exp ? 'ex' : sk.prof ? 'on' : ''}"></span>`}${h(sk.name)}</td>
+      <td class="note">${h(ABIL_NAME[sk.ability].slice(0, 3))}</td>
+      <td class="num">${signed(sk.value)}</td></tr>`;
+  const legend = `<div class="note" style="margin-top:5px">${c.systemId === 'pf2'
+    ? 'U untrained · T trained · E expert · M master · L legendary'
+    : '● proficient · ◉ expertise'}</div>`;
+  // Skill lists are the tallest thing on the sheet, so run them in two
+  // columns rather than one long tower (5e has 18, Pathfinder 1e has 35).
+  const split = d.skills.length > 12;
+  if (!split) {
+    return `<div class="cs-box" data-w="${6 + d.skills.length}"><h4>Skills</h4>
+      <table>${d.skills.map(row).join('')}</table>${legend}</div>`;
+  }
+  const half = Math.ceil(d.skills.length / 2);
+  return `<div class="cs-box" data-w="${7 + half}"><h4>Skills</h4>
+    <div class="cs-split">
+      <table>${d.skills.slice(0, half).map(row).join('')}</table>
+      <table>${d.skills.slice(half).map(row).join('')}</table>
+    </div>${legend}</div>`;
+}
+function attackBlock(c, d) {
+  const atk = d.attacks || d.basicAttacks || [];
+  if (!atk.length) return '';
+  return `<div class="cs-box"><h4>Attacks</h4>
+    <table>${atk.map(a => `<tr><td>${h(a.name)}</td><td class="num">${signed(a.value)}</td>
+      <td class="note">${h(a.dmg || a.note || '')}</td></tr>`).join('')}</table>
+    ${d.map ? `<div class="note" style="margin-top:5px">${h(d.map)}</div>` : ''}
+    ${d.fullAttack ? `<div class="note">Full attack: ${h(d.fullAttack)}</div>` : ''}</div>`;
+}
+function castingBlock(c, d) {
+  if (!d.spell) return '';
+  const rows = sheetSpellRows(c, d);
+  return `<div class="cs-box"><h4>Spellcasting</h4><table>${rows}</table></div>`;
+}
+
+/* ---------------- the live spell list ---------------- */
+function spellPlayBlock(c, d) {
+  const list = charSpells(c);
+  if (!list.length) {
+    if (!casterInfo(c)) return '';
+    return `<div class="cs-box"><h4>Spells</h4>
+      <p class="note">No spells chosen yet. <button class="btn sm noprint" data-act="modify">Pick some in the wizard</button></p></div>`;
+  }
+  const groups = {};
+  list.forEach(sp => {
+    const key = sp.focus ? 'focus' : spellLevelFor(c, sp);
+    (groups[key] = groups[key] || []).push(sp);
+  });
+  const order = Object.keys(groups).sort((a, b) => (a === 'focus' ? 99 : +a) - (b === 'focus' ? 99 : +b));
+
+  return `<div class="cs-box"><h4>Spells — tap Cast to spend a slot</h4>
+    ${order.map(k => {
+    const lvl = k === 'focus' ? null : +k;
+    const res = lvl ? resourceById(c, 'slot' + lvl, d) : (k === 'focus' ? resourceById(c, 'focus', d) : null);
+    const pact = lvl && resourceById(c, 'pact', d);
+    const track = res || pact || null;
+    const left = track ? track.max - used(c, track.id) : null;
+    return `<div class="spgroup">
+        <div class="spgroup-head">
+          <b>${h(k === 'focus' ? 'Focus spells' : levelLabel(c, lvl))}</b>
+          ${track ? `<span class="spslots ${left === 0 ? 'out' : ''}">${left} of ${track.max} ${track.id === 'focus' ? 'focus points' : 'slots'} left</span>` : ''}
+          ${lvl === 0 ? '<span class="note">at will</span>' : ''}
+        </div>
+        <table>${groups[k].map(sp => spellPlayRow(c, sp)).join('')}</table>
+      </div>`;
+  }).join('')}
+  </div>`;
+}
+function spellPlayRow(c, sp) {
+  const cost = castCost(c, sp);
+  const out = !!cost.none;
+  const open = sheetUI.openSpell === sp.uid;
+  return `<tr class="${out ? 'spent' : ''}">
+    <td>
+      <button class="btn sm ghost noprint" data-act="spinfo" data-uid="${h(sp.uid)}" style="padding:1px 5px">${open ? '▾' : '▸'}</button>
+      ${h(sp.name)}
+      ${isPrepared(c, sp.uid) ? '<span class="tag">prepared</span>' : ''}
+      ${sp.concentration ? '<span class="tag">conc</span>' : ''}
+      ${sp.ritual ? '<span class="tag">ritual</span>' : ''}
+      ${out ? `<span class="unavail">unavailable — ${h(cost.label.toLowerCase())}, recharges on a ${h(restWord(restForSpell(c, sp)))}</span>` : ''}
+    </td>
+    <td class="note">${h(sp.castingTime || '')}</td>
+    <td class="note">${h(sp.range || '')}</td>
+    <td class="noprint" style="text-align:right;white-space:nowrap">
+      ${out ? `<span class="note">no slot</span>`
+      : `<button class="btn sm ${cost.free ? '' : 'primary'}" data-act="cast" data-uid="${h(sp.uid)}">Cast</button>`}
+    </td>
+  </tr>${open ? `<tr><td colspan="4" class="spdetail">${spellDetail(c, sp)}</td></tr>` : ''}`;
+}
+function restForSpell(c, sp) {
+  const lv = spellLevelFor(c, sp);
+  const d = derive(c);
+  if (c.systemId === 'pf2' && sp.focus) return 'refocus';
+  const r = resourceById(c, 'slot' + lv, d) || resourceById(c, 'pact', d);
+  return r ? r.reset : 'long';
+}
+
+/* ---------------- features, traits, gear, flavour ---------------- */
+function featureBlock(c, d, cls) {
+  if (!d.features || !d.features.length) return '';
+  const many = d.features.length > 12;
+  return `<div class="cs-box" data-w="${5 + Math.ceil(d.features.length * (many ? 0.75 : 1.4))}"><h4>Class features</h4>
+    <ul class="cs-list ${many ? 'two' : ''}">${d.features.map(f => `<li>${h(f.text)} <span class="note">(${f.level})</span></li>`).join('')}</ul>
+    ${c.systemId === '4e' && d.powers ? `<div style="margin-top:8px">
+      ${[['atwill', 'At-Will'], ['encounter', 'Encounter'], ['daily', 'Daily']].map(([k, label]) => d.powers[k] && d.powers[k].length
+      ? `<div class="note" style="margin-bottom:4px"><b>${label}:</b> ${h(d.powers[k].join('; '))}</div>` : '').join('')}
+    </div>` : ''}</div>`;
+}
+function proficiencyBlock(c, d) {
+  if (!d.profRows) return '';
+  return `<div class="cs-box"><h4>Proficiencies</h4>
+    <table>${d.profRows.map(r => `<tr><td style="white-space:nowrap">${h(r.label)}</td><td>${h(r.value)}</td></tr>`).join('')}</table></div>`;
+}
+function traitBlock(c, S, lin, linSub) {
+  const traits = [].concat(lin ? (lin.traits || []) : [], linSub ? (linSub.traits || []) : []);
+  if (!traits.length) return '';
+  return `<div class="cs-box"><h4>${h(S.lineageLabel)} traits</h4>
+    <ul class="cs-list">${traits.map(t => `<li><b>${h(t.name)}.</b> ${h(t.text)}</li>`).join('')}</ul></div>`;
+}
+function backgroundBlock(c, S, bg) {
+  if (!bg) return '';
+  const bits = [bg.feature && bg.feature !== '—' ? bg.feature : '', bg.feat ? 'Skill feat: ' + bg.feat : '',
+  bg.loreSkill ? 'Lore: ' + bg.loreSkill : '', (bg.tools || []).length ? 'Tools: ' + bg.tools.join(', ') : ''].filter(Boolean);
+  if (!bits.length) return '';
+  return `<div class="cs-box"><h4>${h(S.backgroundLabel)}: ${h(bg.name)}</h4>
+    <div class="prose">${h(bits.join('\n'))}</div></div>`;
+}
+function choiceBlock(c) {
+  const keys = Object.keys(c.choices || {}).filter(k => c.choices[k]);
+  if (!keys.length) return '';
+  return `<div class="cs-box"><h4>Choices</h4><table>${keys
+    .map(k => `<tr><td>${h(k)}</td><td>${h(c.choices[k])}</td></tr>`).join('')}</table></div>`;
+}
+function reminderBlock(c, d) {
+  if (!d.notes || !d.notes.length) return '';
+  return `<div class="cs-box"><h4>Rules reminders</h4><ul class="cs-list">${d.notes.map(n => `<li>${h(n)}</li>`).join('')}</ul></div>`;
+}
+function gearBlock(c, d) {
+  if (!c.gear && !c.gold) return '';
+  return `<div class="cs-box"><h4>Equipment notes${c.gold ? ' — ' + h(c.gold) : ''}</h4>
+    <div class="prose">${h(c.gear || '')}</div>
+    ${d.carry ? `<div class="note" style="margin-top:5px">Carry ${d.carry.carry} lb · push or drag ${d.carry.push} lb</div>` : ''}</div>`;
+}
+function languageBlock(c) {
+  if (!(c.languages || []).length) return '';
+  return `<div class="cs-box"><h4>Languages</h4><div class="prose">${h(c.languages.join(', '))}</div></div>`;
+}
+function noteBlock(c) {
+  if (!c.notes) return '';
+  return `<div class="cs-box"><h4>Feats &amp; options</h4><div class="prose">${h(c.notes)}</div></div>`;
+}
+function flavourBlock(c) {
+  const p = c.personality || {}, a = c.appearance || {};
+  const app2 = ['age', 'height', 'weight', 'eyes', 'hair', 'skin'].filter(k => a[k]).map(k => k + ' ' + a[k]).join(', ');
+  const bits = [];
+  if (app2) bits.push(['Appearance', app2]);
+  ['traits', 'ideals', 'bonds', 'flaws'].forEach(k => { if (p[k]) bits.push([k[0].toUpperCase() + k.slice(1), p[k]]); });
+  if (!bits.length && !p.backstory) return '';
+  return `<div class="cs-box"><h4>Character</h4>
+    ${bits.map(([k, v]) => `<div class="prose"><b>${h(k)}:</b> ${h(v)}</div>`).join('')}
+    ${p.backstory ? `<div class="prose" style="margin-top:6px">${h(p.backstory)}</div>` : ''}</div>`;
+}
+
+/* keep the old helper name used by castingBlock */
+function sheetSpellRows(c, d) {
+  const sp = d.spell;
+  const rows = [];
+  if (sp.tradition) rows.push(['Tradition', sp.tradition]);
+  if (sp.ability) rows.push(['Ability', sp.ability]);
+  if (sp.kind) rows.push(['Type', sp.kind]);
+  if (sp.dc) rows.push(['Save DC', sp.dc]);
+  if (sp.attack !== undefined) rows.push(['Attack', signed(sp.attack)]);
+  if (sp.saveDCbase) rows.push(['Save DC', sp.saveDCbase + ' + spell level']);
+  if (sp.casterLevel) rows.push(['Caster level', sp.casterLevel]);
+  if (sp.maxSpellLevel) rows.push(['Highest level', sp.maxSpellLevel]);
+  if (sp.maxRank) rows.push(['Highest rank', sp.maxRank]);
+  if (sp.cantrips) rows.push(['Cantrips', sp.cantrips]);
+  if (sp.prepared) rows.push(['Prepared', sp.prepared]);
+  if (sp.note) rows.push(['Pact magic', sp.note]);
+  if (sp.slotsPerRank) rows.push(['Slots', sp.slotsPerRank]);
+  if (sp.bonusSlots && Object.keys(sp.bonusSlots).length) rows.push(['Bonus slots', Object.keys(sp.bonusSlots).map(k => k + ': +' + sp.bonusSlots[k]).join(', ')]);
+  return rows.map(([k, v]) => `<tr><td>${h(k)}</td><td>${h(v)}</td></tr>`).join('');
+}
+
+/* ============================================================
+   Sheet events
+   ============================================================ */
+document.addEventListener('click', function (ev) {
+  const el = ev.target.closest('[data-act]');
+  if (!el) return;
+  const act = el.dataset.act;
+  const c = cur();
+  if (!c) return;
+  const amount = () => {
+    const box = document.getElementById('hpAmt');
+    const n = box ? Number(box.value) : 0;
+    return n > 0 ? n : 1;
+  };
+
+  switch (act) {
+    case 'hp': setHp(c, curHp(c) + Number(el.dataset.delta)); persist(); render(); return;
+    case 'dmg': {
+      const n = amount(); const before = curHp(c);
+      applyDamage(c, n);
+      logPlay('Took ' + n + ' damage (' + before + ' → ' + curHp(c) + ').' + (curHp(c) === 0 ? ' Down!' : ''));
+      persist(); render(); return;
+    }
+    case 'heal': {
+      const n = amount(); const before = curHp(c);
+      applyHeal(c, n);
+      logPlay('Healed ' + n + ' (' + before + ' → ' + curHp(c) + ').');
+      persist(); render(); return;
+    }
+    case 'hpfull': setHp(c, maxHp(c)); c.play.temp = 0; logPlay('Back to full hit points.'); persist(); render(); return;
+    case 'pip': {
+      const d = derive(c);
+      const r = resourceById(c, el.dataset.id, d);
+      if (!r) return;
+      const n = Number(el.dataset.n);
+      const left = r.max - used(c, r.id);
+      // a filled pip spends one; an empty pip gives one back
+      setUsed(c, r.id, used(c, r.id) + (n < left ? 1 : -1), r.max);
+      persist(); render(); return;
+    }
+    case 'resspend': case 'resgain': {
+      const d = derive(c);
+      const r = resourceById(c, el.dataset.id, d);
+      if (!r) return;
+      setUsed(c, r.id, used(c, r.id) + (act === 'resspend' ? 1 : -1), r.max);
+      persist(); render(); return;
+    }
+    case 'rest': {
+      const res = doRest(c, el.dataset.kind);
+      const bits = [];
+      if (res.healed) bits.push('healed ' + res.healed + ' HP');
+      if (res.restored.length) bits.push('restored ' + res.restored.slice(0, 4).join(', ') + (res.restored.length > 4 ? '…' : ''));
+      logPlay((el.dataset.kind === 'refocus' ? 'Refocused' : 'Rested') + (bits.length ? ': ' + bits.join('; ') + '.' : ' — nothing needed restoring.'));
+      persist(); render(); return;
+    }
+    case 'hitdie': { const r = spendHitDie(c); logPlay(r.message); persist(); render(); return; }
+    case 'surge': { const r = spendSurge(c); logPlay(r.message); persist(); render(); return; }
+    case 'cast': {
+      const sp = spellByUid(c.systemId, el.dataset.uid);
+      if (!sp) return;
+      const r = castSpell(c, sp);
+      logPlay(r.message);
+      persist(); render(); return;
+    }
+    case 'spinfo': sheetUI.openSpell = sheetUI.openSpell === el.dataset.uid ? null : el.dataset.uid; render(); return;
+    case 'clearlog': sheetUI.log = []; render(); return;
+  }
+});
+
+document.addEventListener('change', function (ev) {
+  if (ev.target.dataset && ev.target.dataset.act === 'temphp') {
+    const c = cur(); if (!c) return;
+    playInit(c).temp = Math.max(0, Number(ev.target.value) || 0);
+    persist(); render();
+  }
+});
