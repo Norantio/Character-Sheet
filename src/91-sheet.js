@@ -621,16 +621,32 @@ function spellPlayBlock(c, d) {
   }).join('')}
   </div>`;
 }
+function spellDice(sp) {
+  // Extract the first dice expression from the spell description (e.g. "3d8", "1d10")
+  const m = (sp.text || '').match(/\b(\d+d\d+)\b/);
+  return m ? m[1] : null;
+}
+
 function spellPlayRow(c, sp, d) {
   const cost = castCost(c, sp);
   const out = !!cost.none;
   const open = sheetUI.openSpell === sp.uid;
   const spell = d && d.spell;
-  // show save type, spell attack bonus, or — depending on spell mechanics
-  const rollCol = sp.save ? `<span class="note">${h(sp.save)} sv</span>`
-    : (sp.damageType && spell) ? `<span class="note">${signed(spell.attack)}</span>`
-    : sp.damageType ? '<span class="note">atk</span>'
-    : '<span class="note">—</span>';
+  const dice = spellDice(sp);
+  // Primary: damage dice if available. Secondary: attack bonus or save type.
+  let rollLine = '';
+  if (dice) {
+    rollLine = `<b>${h(dice)}</b>`;
+    if (sp.save) rollLine += ` <span class="note">${h(sp.save)} sv</span>`;
+    else if (sp.damageType && spell) rollLine += ` <span class="note">${signed(spell.attack)} atk</span>`;
+  } else if (sp.save) {
+    rollLine = `<span class="note">${h(sp.save)} sv</span>`;
+  } else if (sp.damageType && spell) {
+    rollLine = `<span class="note">${signed(spell.attack)} atk</span>`;
+  } else {
+    rollLine = '<span class="note">\u2014</span>';
+  }
+  const rollCol = `<span style="white-space:nowrap">${rollLine}</span>`;
   return `<tr class="${out ? 'spent' : ''}">
     <td>
       <button class="btn sm ghost noprint" data-act="spinfo" data-uid="${h(sp.uid)}" style="padding:1px 5px">${open ? '▾' : '▸'}</button>
