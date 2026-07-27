@@ -82,6 +82,8 @@ function viewSheet() {
       ${spellPlayBlock(c, d)}
       ${resourceBlock(c, d)}
 
+      ${sheetPanels(c, d)}
+
       ${columnise([
       saveBlock(c, d),
       attackBlock(c, d),
@@ -93,7 +95,6 @@ function viewSheet() {
       backgroundBlock(c, S, bg),
       choiceBlock(c),
       reminderBlock(c, d),
-      inventoryBlock(c, d),
       gearBlock(c, d),
       campaignBlock(c),
       languageBlock(c),
@@ -101,10 +102,127 @@ function viewSheet() {
       privacyBlock(real)
     ])}
 
-      ${journalBlock(c)}
-      ${flavourBlock(c)}
       ${c.printSpellText ? spellTextSheet(c) : ''}
     </div>`;
+}
+
+/* ---------------- sheet sub-pages: Inventory / Journal / Character ---------------- */
+const PANEL_PAGES = {
+  inventory: { title: 'Inventory', sub: 'Everything carried, worn and attuned' },
+  journal:   { title: 'Journal',   sub: 'Session notes and entries' },
+  character: { title: 'Character', sub: 'Background, roleplay and the record of this character' }
+};
+
+function sheetPanels(c, d) {
+  const invN = (invItems(c) || []).length;
+  const jN = (c.journal || []).length;
+  const btn = (id, label, sub, count) =>
+    `<button class="btn spanel-btn" data-act="sheetpanel" data-panel="${id}">
+      <span class="spanel-t">${h(label)}${count ? ' <span class="spanel-n">' + count + '</span>' : ''}</span>
+      <span class="spanel-s">${h(sub)}</span>
+    </button>`;
+  return `<div class="cs-box spanel-wrap noprint"><h4>Character pages</h4>
+    <div class="spanel-nav">
+      ${btn('inventory', 'Inventory', 'gear, weapons, encumbrance', invN)}
+      ${btn('journal', 'Journal', 'session notes and entries', jN)}
+      ${btn('character', 'Character', 'background, roleplay, history', 0)}
+    </div></div>`;
+}
+
+function viewSheetPanel(c) {
+  const S = sys(c.systemId);
+  const d = derive(c);
+  const meta = PANEL_PAGES[app.view] || PANEL_PAGES.character;
+  const body = app.view === 'inventory' ? inventoryBlock(c, d)
+    : app.view === 'journal' ? journalBlock(c)
+    : characterPage(c);
+  const other = Object.keys(PANEL_PAGES).filter(k => k !== app.view);
+  return pageBar(c, 'sheet') +
+    `<div class="pagebar noprint">
+      <button class="btn" data-act="sheet">← Back to sheet</button>
+      <div class="pagebar-title">
+        <b>${h(c.name || 'Unnamed character')} — ${h(meta.title)}</b>
+        <span>${h(meta.sub)}</span>
+      </div>
+      <div class="pagebar-acts">
+        ${other.map(k => `<button class="btn" data-act="sheetpanel" data-panel="${k}">${h(PANEL_PAGES[k].title)}</button>`).join('')}
+        <button class="btn" data-act="print">Print / PDF</button>
+      </div>
+    </div>
+    <div class="csheet">${body}
+      <div class="footbar noprint">
+        <button class="btn" data-act="sheet">← Back to sheet</button>
+      </div>
+    </div>`;
+}
+
+function fmtWhen(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (isNaN(d)) return '—';
+  return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+}
+
+function logHistory(c, text) {
+  if (!c) return;
+  if (!c.history) c.history = [];
+  c.history.push({ date: new Date().toISOString(), text: text, level: c.level });
+}
+
+function characterPage(c) {
+  const S = sys(c.systemId);
+  const history = (c.history || []).slice().sort((x, y) => (y.date || '').localeCompare(x.date || ''));
+  const ro = typeof sheetReadOnly === 'function' && sheetReadOnly();
+  if (ro) return `${flavourBlock(c) || '<div class="cs-box"><h4>Roleplay</h4><p class="note">Nothing recorded here.</p></div>'}
+    ${characterRecord(c, S, history)}`;
+  const a = c.appearance || {}, pr = c.personality || {};
+  const line = (k, label, val) =>
+    `<div class="field"><label>${h(label)}</label>
+      <input data-field="${k}" value="${h(val || '')}"></div>`;
+  const area = (k, label, val, min, hint) =>
+    `<div class="field"><label>${h(label)}</label>
+      <textarea data-field="${k}" style="min-height:${min}px" placeholder="${h(hint || '')}">${h(val || '')}</textarea></div>`;
+  return `<div class="cs-box"><h4>Appearance <span class="note">edits save as you type</span></h4>
+      <div class="grid3">
+        ${line('appearance.age', 'Age', a.age)}
+        ${line('appearance.height', 'Height', a.height)}
+        ${line('appearance.weight', 'Weight', a.weight)}
+        ${line('appearance.eyes', 'Eyes', a.eyes)}
+        ${line('appearance.hair', 'Hair', a.hair)}
+        ${line('appearance.skin', 'Skin', a.skin)}
+      </div></div>
+    <div class="cs-box"><h4>Personality</h4>
+      ${area('personality.traits', 'Traits', pr.traits, 54, 'What stands out about you')}
+      ${area('personality.ideals', 'Ideals', pr.ideals, 54, 'What you believe in')}
+      ${area('personality.bonds', 'Bonds', pr.bonds, 54, 'Who or what matters most')}
+      ${area('personality.flaws', 'Flaws', pr.flaws, 54, 'Your weakness or vice')}
+    </div>
+    <div class="cs-box"><h4>Backstory</h4>
+      ${area('personality.backstory', 'Backstory', pr.backstory, 120, 'Where you came from, what you want, who you owe…')}
+    </div>
+    ${characterRecord(c, S, history)}`;
+}
+
+function characterRecord(c, S, history) {
+  return `<div class="cs-box"><h4>Record</h4>
+    <div class="cpanel">
+      <div class="cpanel-col">
+        ${kv([
+          ['Created', fmtWhen(c.created)],
+          ['Last edited', fmtWhen(c.updated)],
+          ['System', S.name],
+          ['Level', c.level],
+          ['Player', c.player || '—']
+        ])}
+      </div>
+      <div class="cpanel-col">
+        <div class="cfield"><span class="k">Level history</span>
+          ${history.length
+            ? `<ul class="chist">${history.map(e => `<li><span class="jdate">${h(fmtWhen(e.date))}</span> ${h(e.text)}</li>`).join('')}</ul>`
+            : '<p class="note">Levelling up and other milestones are logged here from now on.</p>'}
+        </div>
+      </div>
+    </div></div>`;
 }
 
 /* ------------------------------------------------------------

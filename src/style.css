@@ -747,6 +747,16 @@ details.disclose > summary:hover { color: var(--accent-200); }
 }
 .printonly { display: none; }
 
+/* ---------- sheet sub-page nav panel ---------- */
+.spanel-wrap { margin-bottom: 12px; }
+.spanel-nav { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; }
+@media (max-width: 700px) { .spanel-nav { grid-template-columns: minmax(0, 1fr); } }
+.spanel-btn { flex-direction: column; align-items: flex-start; gap: 2px; padding: 11px 14px; text-align: left; background: var(--bg2); }
+.spanel-btn:hover { background: var(--panel2); border-color: var(--accent-700); }
+.spanel-t { font-size: .98rem; }
+.spanel-s { font-size: .76rem; font-weight: 400; color: var(--dim); }
+.spanel-n { display: inline-block; margin-left: 6px; padding: 0 6px; border-radius: 99px; font-size: .72rem; background: var(--accent-900); color: var(--accent-200); }
+
 .jform { display: grid; gap: 8px; justify-items: start; margin-bottom: 12px; }
 .jform textarea { min-height: 76px; }
 .jlist { display: flex; flex-direction: column; gap: 10px; }

@@ -174,7 +174,10 @@ function render() {
   else if (app.view === 'campaign') root.innerHTML = viewCampaign();
   else if (app.view === 'roster') root.innerHTML = viewRoster();
   else if (app.view === 'sheet') root.innerHTML = viewSheet();
-  else root.innerHTML = viewBuild();
+  else if (app.view === 'inventory' || app.view === 'journal' || app.view === 'character') {
+    const pc = cur();
+    root.innerHTML = pc ? viewSheetPanel(pc) : viewRoster();
+  } else root.innerHTML = viewBuild();
   document.getElementById('topbar').innerHTML = topbar();
   refreshConnBar();
   renderState.key = key;
@@ -207,6 +210,9 @@ function topbar() {
   } else if (app.view === 'roster') {
     right = `<span class="sysbadge">${app.roster.length} character${app.roster.length === 1 ? '' : 's'}</span>
       <button class="btn ghost" data-act="home">← Home</button>`;
+  } else if (app.view === 'inventory' || app.view === 'journal' || app.view === 'character') {
+    right = `<span class="sysbadge">${(PANEL_PAGES && PANEL_PAGES[app.view]) ? PANEL_PAGES[app.view].title : app.view}</span>
+      <button class="btn ghost" data-act="sheet">← Sheet</button>`;
   } else if (c) {
     const S = sys(c.systemId);
     right = `<span class="sysbadge">${h(SYSTEM_SHORT[c.systemId] || S.name)} · Level ${c.level}</span>
@@ -1306,6 +1312,7 @@ document.addEventListener('click', function (ev) {
       app.view = 'dm'; render(); return;
     }
     case 'sheet': app.view = 'sheet'; render(); return;
+    case 'sheetpanel': app.view = el.dataset.panel; render(); return;
     case 'print': window.print(); return;
     case 'export': doExport(c); return;
     case 'import': doImport(); return;
